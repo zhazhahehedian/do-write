@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dpbug.server.mapper.novel.ProjectMapper">
+
+    <!-- 结果映射：项目统计信息 -->
+    <resultMap id="ProjectStatisticsMap" type="com.dpbug.server.model.vo.novel.ProjectStatisticsVO">
+        <result column="project_id" property="projectId"/>
+        <result column="title" property="title"/>
+
+        <!-- 字数统计 -->
+        <result column="target_words" property="targetWords"/>
+        <result column="current_words" property="currentWords"/>
+        <result column="progress_percent" property="progressPercent"/>
+
+        <!-- 章节统计 -->
+        <result column="total_chapters" property="totalChapters"/>
+        <result column="draft_chapters" property="draftChapters"/>
+        <result column="published_chapters" property="publishedChapters"/>
+
+        <!-- 角色统计 -->
+        <result column="total_characters" property="totalCharacters"/>
+        <result column="protagonists" property="protagonists"/>
+        <result column="supporting_roles" property="supportingRoles"/>
+        <result column="antagonists" property="antagonists"/>
+        <result column="organizations" property="organizations"/>
+
+        <!-- 大纲统计 -->
+        <result column="total_outlines" property="totalOutlines"/>
+
+        <!-- 记忆统计 -->
+        <result column="total_memories" property="totalMemories"/>
+        <result column="planted_foreshadows" property="plantedForeshadows"/>
+        <result column="resolved_foreshadows" property="resolvedForeshadows"/>
+    </resultMap>
+
+    <!-- 查询项目统计信息 -->
+    <select id="selectStatistics" resultMap="ProjectStatisticsMap">
+        SELECT
+            p.id AS project_id,
+            p.title,
+
+            -- 字数统计
+            p.target_words,
+            p.current_words,
+            CASE
+                WHEN p.target_words > 0 THEN ROUND(p.current_words * 100.0 / p.target_words)
+                ELSE 0
+            END AS progress_percent,
+
+            -- 章节统计
+            (SELECT COUNT(*)
+             FROM novel_chapter
+             WHERE project_id = p.id AND is_deleted = 0
+            ) AS total_chapters,
+
+            (SELECT COUNT(*)
+             FROM novel_chapter
+             WHERE project_id = p.id AND status = 'draft' AND is_deleted = 0
+            ) AS draft_chapters,
+
+            (SELECT COUNT(*)
+             FROM novel_chapter
+             WHERE project_id = p.id AND status = 'published' AND is_deleted = 0
+            ) AS published_chapters,
+
+            -- 角色统计
+            (SELECT COUNT(*)
+             FROM novel_character
+             WHERE project_id = p.id AND is_organization = 0 AND is_deleted = 0
+            ) AS total_characters,
+
+            (SELECT COUNT(*)
+             FROM novel_character
+             WHERE project_id = p.id AND role_type = 'protagonist' AND is_deleted = 0
+            ) AS protagonists,
+
+            (SELECT COUNT(*)
+             FROM novel_character
+             WHERE project_id = p.id AND role_type = 'supporting' AND is_deleted = 0
+            ) AS supporting_roles,
+
+            (SELECT COUNT(*)
+             FROM novel_character
+             WHERE project_id = p.id AND role_type = 'antagonist' AND is_deleted = 0
+            ) AS antagonists,
+
+            (SELECT COUNT(*)
+             FROM novel_character
+             WHERE project_id = p.id AND is_organization = 1 AND is_deleted = 0
+            ) AS organizations,
+
+            -- 大纲统计
+            (SELECT COUNT(*)
+             FROM novel_outline
+             WHERE project_id = p.id AND is_deleted = 0
+            ) AS total_outlines,
+
+            -- 记忆统计
+            (SELECT COUNT(*)
+             FROM novel_story_memory
+             WHERE project_id = p.id AND is_deleted = 0
+            ) AS total_memories,
+
+            (SELECT COUNT(*)
+             FROM novel_story_memory
+             WHERE project_id = p.id AND is_foreshadow = 1 AND is_deleted = 0
+            ) AS planted_foreshadows,
+
+            (SELECT COUNT(*)
+             FROM novel_story_memory
+             WHERE project_id = p.id AND is_foreshadow = 2 AND is_deleted = 0
+            ) AS resolved_foreshadows
+
+        FROM novel_project p
+        WHERE p.id = #{projectId}
+          AND p.user_id = #{userId}
+          AND p.is_deleted = 0
+    </select>
+
+    <!-- 更新项目统计信息 -->
+    <update id="updateStatistics">
+        UPDATE novel_project p
+        SET
+            current_words = (
+                SELECT COALESCE(SUM(word_count), 0)
+                FROM novel_chapter
+                WHERE project_id = #{projectId} AND is_deleted = 0
+            ),
+            character_count = (
+                SELECT COUNT(*)
+                FROM novel_character
+                WHERE project_id = #{projectId} AND is_deleted = 0
+            )
+        WHERE p.id = #{projectId}
+    </update>
+
+</mapper>

@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN" monitorInterval="30">
+    <Properties>
+        <!-- 日志文件路径 -->
+        <Property name="LOG_HOME">logs</Property>
+        <!-- 应用名称 -->
+        <Property name="APP_NAME">do-write-server</Property>
+        <!-- 日志输出格式 -->
+        <Property name="LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n</Property>
+        <!-- 控制台日志输出格式（带颜色） -->
+        <Property name="CONSOLE_LOG_PATTERN">%d{yyyy-MM-dd HH:mm:ss.SSS} %highlight{%-5level}{FATAL=red, ERROR=red, WARN=yellow, INFO=green, DEBUG=cyan, TRACE=blue} [%t] %style{%logger{36}}{cyan} - %msg%n</Property>
+    </Properties>
+
+    <Appenders>
+        <!-- 控制台输出 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${CONSOLE_LOG_PATTERN}"/>
+        </Console>
+
+        <!-- 所有日志输出到文件 -->
+        <RollingFile name="RollingFileAll" fileName="${LOG_HOME}/${APP_NAME}.log"
+                     filePattern="${LOG_HOME}/${APP_NAME}-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <!-- 每天滚动一次 -->
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <!-- 单个文件最大100MB -->
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <!-- 最多保留30个文件 -->
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- 错误日志单独输出 -->
+        <RollingFile name="RollingFileError" fileName="${LOG_HOME}/${APP_NAME}-error.log"
+                     filePattern="${LOG_HOME}/${APP_NAME}-error-%d{yyyy-MM-dd}-%i.log.gz">
+            <ThresholdFilter level="ERROR" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+
+        <!-- AI 相关日志单独输出 -->
+        <RollingFile name="RollingFileAI" fileName="${LOG_HOME}/${APP_NAME}-ai.log"
+                     filePattern="${LOG_HOME}/${APP_NAME}-ai-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <SizeBasedTriggeringPolicy size="100MB"/>
+            </Policies>
+            <DefaultRolloverStrategy max="30"/>
+        </RollingFile>
+    </Appenders>
+
+    <Loggers>
+        <!-- Spring AI 日志 -->
+        <Logger name="org.springframework.ai" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFileAI"/>
+            <AppenderRef ref="RollingFileError"/>
+        </Logger>
+
+        <!-- 业务日志 -->
+        <Logger name="com.dpbug" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFileAll"/>
+            <AppenderRef ref="RollingFileError"/>
+        </Logger>
+
+        <!-- MyBatis 日志 -->
+        <Logger name="com.baomidou.mybatisplus" level="debug" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFileAll"/>
+        </Logger>
+
+        <!-- Spring 框架日志 -->
+        <Logger name="org.springframework" level="info" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFileAll"/>
+        </Logger>
+
+        <!-- 根日志配置 -->
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="RollingFileAll"/>
+            <AppenderRef ref="RollingFileError"/>
+        </Root>
+    </Loggers>
+</Configuration>

@@ -1,0 +1,188 @@
+server:
+  port: 8099
+
+spring:
+  application:
+    name: do-write-server
+
+  # 配置文件
+  profiles:
+    active: dev
+
+  # Jackson 配置
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+  # 数据源配置
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:do_write}?useUnicode=true&characterEncoding=utf8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    druid:
+      # 初始化连接数
+      initial-size: 5
+      # 最小空闲连接数
+      min-idle: 5
+      # 最大活动连接数
+      max-active: 20
+      # 获取连接等待超时时间
+      max-wait: 60000
+      # 配置间隔多久进行一次检测，检测需要关闭的空闲连接，单位毫秒
+      time-between-eviction-runs-millis: 60000
+      # 配置连接在池中最小生存时间
+      min-evictable-idle-time-millis: 300000
+      # 测试连接是否有效的SQL
+      validation-query: SELECT 1 FROM DUAL
+      # 申请连接时执行validationQuery检测连接是否有效
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+      # 打开PSCache，并且指定每个连接上PSCache的大小
+      pool-prepared-statements: true
+      max-pool-prepared-statement-per-connection-size: 20
+      # 配置监控统计拦截的filters
+      filters: stat,wall
+      # 通过connectProperties属性来打开mergeSql功能；慢SQL记录
+      connection-properties: druid.stat.mergeSql=true;druid.stat.slowSqlMillis=5000
+      # 配置StatFilter
+      web-stat-filter:
+        enabled: true
+        url-pattern: /*
+        exclusions: "*.js,*.gif,*.jpg,*.png,*.css,*.ico,/druid/*"
+      # 配置StatViewServlet
+      stat-view-servlet:
+        enabled: true
+        url-pattern: /druid/*
+        reset-enable: false
+        login-username: admin
+        login-password: admin
+
+  # Redis 配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 5000ms
+      jedis:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+  # Spring AI 配置
+  # 注意：本项目采用数据库配置方案，不在此处预设 API Key
+  # 用户需在系统中配置自己的 AI 服务信息（user_api_config 表）
+  # 以下配置仅用于满足自动配置要求，实际运行时通过 ChatClientFactory 动态创建客户端
+  ai:
+    openai:
+      # 占位符API key，仅用于满足自动配置，实际不使用
+      api-key: ${OPENAI_API_KEY:sk-placeholder-key}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+
+    # Ollama 配置（可选）
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+
+    # 向量存储配置
+    vectorstore:
+      simple:
+        enabled: true
+
+# AI 业务配置
+ai:
+  # AES 加密密钥（用于加密 API Key）
+  # 生产环境请务必修改为自己的32字符密钥
+  encryption:
+    key: ${AI_ENCRYPTION_KEY:D0-Writ3-32b!t}
+
+  # VectorStore 文件存储路径
+  vector-store:
+    file-path: ${AI_VECTOR_STORE_PATH:./data/vector-store.json}
+
+# 小说生成业务配置
+novel:
+  generation:
+    # 最大并发生成任务数
+    max-concurrent-tasks: 5
+    # 章节最大字数
+    chapter-max-words: 3000
+    # 记忆检索 Top K
+    memory-search-top-k: 5
+    # 记忆相似度阈值
+    memory-similarity-threshold: 0.3
+
+# MyBatis Plus 配置
+mybatis-plus:
+  # Mapper XML 文件位置
+  mapper-locations: classpath*:/mapper/**/*.xml
+  # 实体类包路径
+  type-aliases-package: com.dpbug.server.entity
+  configuration:
+    # 开启驼峰命名转换
+    map-underscore-to-camel-case: true
+    # 日志实现
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+    # 缓存开关
+    cache-enabled: false
+  global-config:
+    db-config:
+      # 主键策略：雪花
+      id-type: assign_id
+      # 逻辑删除字段名
+      logic-delete-field: isDeleted
+      # 逻辑删除值
+      logic-delete-value: 1
+      # 逻辑未删除值
+      logic-not-delete-value: 0
+
+# sa-token 配置
+sa-token:
+  # token 名称（同时也是 cookie 名称）
+  token-name: Authorization
+  # token 有效期（单位：秒）7天
+  timeout: 604800
+  # token 最低活跃频率（单位：秒），-1 表示不限制
+  active-timeout: -1
+  # 是否允许同一账号多地同时登录 （为 true 时允许一起登录, 为 false 时新登录挤掉旧登录）
+  is-concurrent: false
+  # 在多人登录同一账号时，是否共用一个 token
+  is-share: false
+  # token 风格（uuid、simple-uuid、random-32、random-64、random-128、tik）
+  token-style: uuid
+  # 是否输出操作日志
+  is-log: false
+
+oauth:
+  providers:
+    linuxdo:
+      client-id: ${LINUXDO_CLIENT_ID:your-client-id}
+      client-secret: ${LINUXDO_CLIENT_SECRET:your-client-secret}
+      authorize-url: https://connect.linux.do/oauth2/authorize
+      token-url: https://connect.linux.do/oauth2/token
+      user-info-url: https://connect.linux.do/api/user
+      redirect-uri: ${APP_BASE_URL:http://localhost:8080}/api/oauth/linuxdo/callback
+
+    fishpi:
+      client-id: ${FISHPI_CLIENT_ID:your-client-id}
+      client-secret: ${FISHPI_CLIENT_SECRET:your-client-secret}
+      authorize-url: https://fishpi.cn/oauth/authorize
+      token-url: https://fishpi.cn/oauth/token
+      user-info-url: https://fishpi.cn/api/user
+      redirect-uri: ${APP_BASE_URL:http://localhost:8080}/api/oauth/fishpi/callback
+
+# 日志配置
+logging:
+  config: classpath:log4j2.xml
+  level:
+    root: INFO
+    com.dpbug: DEBUG
+    org.springframework.ai: DEBUG

@@ -1,0 +1,30 @@
+# ========== 开发环境配置 ==========
+# 数据库配置
+MYSQL_HOST: 156.225.20.220
+MYSQL_PORT: 3326
+MYSQL_DATABASE: do_write
+MYSQL_USERNAME: root
+MYSQL_PASSWORD: K9#pQ2!sL7
+
+# Redis 配置
+REDIS_HOST: 156.225.20.220
+REDIS_PORT: 6379
+REDIS_PASSWORD: 'K9#pQ2!sL7'
+REDIS_DATABASE: 0
+
+# OAuth 配置（可选，如果不用可以保持默认值）
+LINUXDO_CLIENT_ID: your-dev-client-id
+LINUXDO_CLIENT_SECRET: your-dev-client-secret
+FISHPI_CLIENT_ID: your-dev-client-id
+FISHPI_CLIENT_SECRET: your-dev-client-secret
+APP_BASE_URL: http://localhost:8080
+
+# ========== 服务配置 ==========
+server:
+  port: 8099
+
+# ========== 日志配置 ==========
+logging:
+  level:
+    com.dpbug: DEBUG
+    org.springframework.ai: DEBUG

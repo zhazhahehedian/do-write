@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dpbug.server.mapper.novel.CharacterMapper">
+
+    <select id="selectStatistics" resultType="com.dpbug.server.model.vo.novel.CharacterStatisticsVO">
+        SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN role_type = 'protagonist' THEN 1 ELSE 0 END) as protagonistCount,
+            SUM(CASE WHEN role_type = 'supporting' THEN 1 ELSE 0 END) as supportingCount,
+            SUM(CASE WHEN role_type = 'antagonist' THEN 1 ELSE 0 END) as antagonistCount,
+            SUM(CASE WHEN is_organization = 1 THEN 1 ELSE 0 END) as organizationCount
+        FROM novel_character
+        WHERE project_id = #{projectId} AND is_deleted = 0
+    </select>
+</mapper>
