@@ -24,16 +24,16 @@ public class WritingStyleManager {
     /**
      * 获取预设风格
      *
-     * @param styleId 风格ID
+     * @param styleCode 风格编码
      * @return 风格配置，如果不存在返回 Optional.empty()
      */
-    public Optional<WritingStyleConfig> getPresetStyle(String styleId) {
-        WritingStyle style = WritingStyle.fromId(styleId);
+    public Optional<WritingStyleConfig> getPresetStyle(String styleCode) {
+        WritingStyle style = WritingStyle.fromCode(styleCode);
         if (style == null) {
             return Optional.empty();
         }
         return Optional.of(new WritingStyleConfig(
-                style.getId(),
+                style.getCode(),
                 style.getName(),
                 style.getDescription(),
                 style.getPromptContent()
@@ -49,7 +49,7 @@ public class WritingStyleManager {
         List<WritingStyleConfig> configs = new ArrayList<>();
         for (WritingStyle style : WritingStyle.values()) {
             configs.add(new WritingStyleConfig(
-                    style.getId(),
+                    style.getCode(),
                     style.getName(),
                     style.getDescription(),
                     style.getPromptContent()
@@ -59,15 +59,15 @@ public class WritingStyleManager {
     }
 
     /**
-     * 获取所有预设风格（Map形式，key为styleId）
+     * 获取所有预设风格（Map形式，key为styleCode）
      *
      * @return 风格配置Map
      */
     public Map<String, WritingStyleConfig> getAllPresetsAsMap() {
         Map<String, WritingStyleConfig> map = new LinkedHashMap<>();
         for (WritingStyle style : WritingStyle.values()) {
-            map.put(style.getId(), new WritingStyleConfig(
-                    style.getId(),
+            map.put(style.getCode(), new WritingStyleConfig(
+                    style.getCode(),
                     style.getName(),
                     style.getDescription(),
                     style.getPromptContent()
@@ -92,10 +92,10 @@ public class WritingStyleManager {
     }
 
     /**
-     * 将写作风格应用到基础提示词（通过风格ID）
+     * 将写作风格应用到基础提示词（通过风格枚举）
      *
      * @param basePrompt 基础提示词
-     * @param styleId    风格ID
+     * @param style      风格枚举
      * @return 组合后的提示词
      */
     public String applyStyleToPrompt(String basePrompt, WritingStyle style) {
@@ -112,9 +112,9 @@ public class WritingStyleManager {
     @AllArgsConstructor
     public static class WritingStyleConfig {
         /**
-         * 风格ID
+         * 风格编码
          */
-        private String id;
+        private String code;
 
         /**
          * 风格名称

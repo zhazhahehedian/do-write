@@ -32,9 +32,9 @@ public class BatchGenerateRequest implements Serializable {
     private List<Long> outlineIds;
 
     /**
-     * 写作风格ID
+     * 写作风格编码
      */
-    private Long styleId;
+    private String styleCode;
 
     /**
      * 目标字数

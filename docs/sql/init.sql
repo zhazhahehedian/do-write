@@ -159,7 +159,7 @@ CREATE TABLE `novel_project` (
 
     -- AI配置
     `ai_model` VARCHAR(50) COMMENT 'AI模型名称',
-    `writing_style_id` BIGINT COMMENT '写作风格ID',
+    `writing_style_code` VARCHAR(50) COMMENT '写作风格编码（对应枚举 WritingStyle.code）',
 
     -- 审计字段
     `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -195,7 +195,7 @@ CREATE TABLE `novel_chapter` (
     `expansion_plan` JSON COMMENT 'one-to-many展开规划',
     `ai_model` VARCHAR(50) COMMENT '使用的AI模型',
     `generation_params` JSON COMMENT '生成参数（温度、top_p等）',
-    `style_id` BIGINT COMMENT '写作风格ID',
+    `style_code` VARCHAR(50) COMMENT '写作风格编码（对应枚举 WritingStyle.code）',
 
     -- 版本管理
     `version` INT DEFAULT 1 COMMENT '版本号',
@@ -362,32 +362,6 @@ CREATE TABLE `novel_plot_analysis` (
     KEY `idx_is_deleted` (`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='剧情分析表';
 
--- 写作风格表
-CREATE TABLE `novel_writing_style` (
-    `id` BIGINT NOT NULL COMMENT '风格ID（雪花算法生成）',
-    `user_id` BIGINT COMMENT '用户ID (NULL=全局预设)',
-    `name` VARCHAR(100) NOT NULL COMMENT '风格名称',
-    `description` TEXT COMMENT '风格描述',
-    `style_type` VARCHAR(20) DEFAULT 'custom' COMMENT '风格类型 (preset/custom)',
-    `preset_id` VARCHAR(50) COMMENT '预设风格ID (natural/classical/modern等)',
-
-    -- 提示词内容
-    `prompt_content` TEXT NOT NULL COMMENT '风格提示词（详细指令）',
-
-    -- 排序
-    `order_index` INT DEFAULT 0 COMMENT '排序序号',
-
-    -- 审计字段
-    `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    `update_time` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    `is_deleted` TINYINT(1) DEFAULT 0,
-
-    PRIMARY KEY (`id`),
-    KEY `idx_user_id` (`user_id`),
-    KEY `idx_style_type` (`style_type`),
-    KEY `idx_is_deleted` (`is_deleted`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='写作风格表';
-
 -- 生成任务表
 CREATE TABLE `novel_generation_task` (
     `id` BIGINT NOT NULL COMMENT '任务ID（雪花算法生成）',
@@ -432,15 +406,6 @@ CREATE TABLE `novel_generation_task` (
 INSERT INTO `user` (`id`, `username`, `nickname`, `email`, `password`, `status`, `user_type`) VALUES
 (1000000000000000001, 'admin', '管理员', 'admin@example.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 1, 'ADMIN'),
 (1000000000000000002, 'test', '测试用户', 'test@example.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 1, 'NORMAL');
-
--- 插入预设写作风格（ID 使用具体数字值）
-INSERT INTO `novel_writing_style` (`id`, `user_id`, `name`, `description`, `style_type`, `preset_id`, `prompt_content`, `order_index`) VALUES
-(2000000000000000001, NULL, '自然沉浸', '用自然流畅的语言，让读者身临其境地感受故事。注重环境描写和情感渲染，避免生硬的叙述。', 'preset', 'natural', '你是一位擅长自然沉浸式写作的小说家。写作要求：1) 使用流畅自然的语言；2) 注重环境和氛围描写；3) 让读者感同身受；4) 避免生硬的信息堆砌；5) 善用感官细节。', 1),
-(2000000000000000002, NULL, '古典雅致', '采用古典优雅的文风，注重辞藻的华美和意境的营造。适合古风、仙侠等题材。', 'preset', 'classical', '你是一位擅长古典雅致风格的小说家。写作要求：1) 使用优美典雅的语言；2) 注重意境营造；3) 适度使用文言词汇；4) 讲究韵律节奏；5) 追求意蕴深远。', 2),
-(2000000000000000003, NULL, '冷硬现代', '简洁有力的现代派风格，擅长快节奏叙事和干脆利落的对话。适合悬疑、硬派侦探等题材。', 'preset', 'modern', '你是一位擅长冷硬现代风格的小说家。写作要求：1) 语言简洁有力；2) 快节奏叙事；3) 对话干脆利落；4) 少用形容词；5) 注重动作和情节推进。', 3),
-(2000000000000000004, NULL, '意识流', '通过角色的内心独白和意识流动展现故事，注重心理描写和情感变化。', 'preset', 'stream', '你是一位擅长意识流写作的小说家。写作要求：1) 深入角色内心世界；2) 展现意识流动过程；3) 注重心理描写；4) 情感细腻真实；5) 时空可以跳跃。', 4),
-(2000000000000000005, NULL, '白描速写', '用简洁的笔触勾勒场景和人物，不做过多渲染，让读者自行想象。', 'preset', 'sketch', '你是一位擅长白描速写的小说家。写作要求：1) 简洁明快的语言；2) 勾勒而非渲染；3) 留白给读者想象空间；4) 抓住关键细节；5) 避免冗长描写。', 5),
-(2000000000000000006, NULL, '感官特写', '充分调动五感描写，让读者通过视觉、听觉、嗅觉、触觉、味觉全方位体验故事。', 'preset', 'sensory', '你是一位擅长感官特写的小说家。写作要求：1) 充分调动五感描写；2) 细节丰富生动；3) 让读者如临其境；4) 注重感官联动；5) 营造沉浸式体验。', 6);
 
 -- 创建索引优化查询性能
 -- 用户表额外索引

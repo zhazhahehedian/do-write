@@ -40,6 +40,15 @@ public interface OutlineService {
     OutlineVO getById(Long userId, Long outlineId);
 
     /**
+     * 获取大纲详情（内部调用，不校验项目权限）
+     * <p>仅供已校验过项目权限的服务内部使用</p>
+     *
+     * @param outlineId 大纲ID
+     * @return 大纲详情
+     */
+    OutlineVO getByIdInternal(Long outlineId);
+
+    /**
      * 更新大纲
      *
      * @param userId  用户ID

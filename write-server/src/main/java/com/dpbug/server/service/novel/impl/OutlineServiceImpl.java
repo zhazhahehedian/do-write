@@ -71,14 +71,21 @@ public class OutlineServiceImpl implements OutlineService {
 
     @Override
     public OutlineVO getById(Long userId, Long outlineId) {
+        OutlineVO vo = getByIdInternal(outlineId);
+
+        // 检查项目权限
+        projectService.checkOwnership(userId, vo.getProjectId());
+
+        return vo;
+    }
+
+    @Override
+    public OutlineVO getByIdInternal(Long outlineId) {
         NovelOutline outline = outlineMapper.selectById(outlineId);
 
         if (outline == null) {
             throw new BusinessException(ResultCode.DATA_NOT_EXIST, "大纲不存在");
         }
-
-        // 检查项目权限
-        projectService.checkOwnership(userId, outline.getProjectId());
 
         return convertToVO(outline);
     }

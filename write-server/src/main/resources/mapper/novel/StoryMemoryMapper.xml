@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dpbug.server.mapper.novel.StoryMemoryMapper">
+
+    <!-- 查询章节的所有记忆 -->
+    <select id="selectByChapterId" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT *
+        FROM novel_story_memory
+        WHERE chapter_id = #{chapterId}
+        ORDER BY importance_score DESC
+    </select>
+
+    <!-- 查询项目的未完结伏笔 -->
+    <select id="selectPendingForeshadows" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT *
+        FROM novel_story_memory
+        WHERE project_id = #{projectId}
+          AND is_foreshadow = 1
+        ORDER BY story_timeline ASC
+    </select>
+
+    <!-- 按记忆类型查询 -->
+    <select id="selectByType" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT *
+        FROM novel_story_memory
+        WHERE project_id = #{projectId}
+          AND memory_type = #{memoryType}
+        ORDER BY story_timeline DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 按重要性查询高分记忆 -->
+    <select id="selectImportantMemories" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT *
+        FROM novel_story_memory
+        WHERE project_id = #{projectId}
+          AND importance_score >= #{minScore}
+        ORDER BY importance_score DESC, story_timeline DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

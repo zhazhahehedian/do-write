@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dpbug.server.mapper.novel.ChapterMapper">
+
+    <!-- 查询项目章节列表(按章节号排序) -->
+    <select id="selectByProjectIdOrdered" resultType="com.dpbug.server.model.entity.novel.NovelChapter">
+        SELECT *
+        FROM novel_chapter
+        WHERE project_id = #{projectId}
+          AND is_deleted = 0
+        ORDER BY chapter_number ASC, sub_index ASC
+    </select>
+
+    <!-- 查询最近N章(完整内容) -->
+    <select id="selectRecentChapters" resultType="com.dpbug.server.model.entity.novel.NovelChapter">
+        SELECT *
+        FROM novel_chapter
+        WHERE project_id = #{projectId}
+          AND chapter_number &lt; #{currentChapterNumber}
+          AND is_deleted = 0
+          AND generation_status = 'completed'
+        ORDER BY chapter_number DESC, sub_index DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 查询章节摘要(用于上下文构建,不包含content字段) -->
+    <select id="selectChapterSummaries" resultType="com.dpbug.server.model.entity.novel.NovelChapter">
+        SELECT id,
+               project_id,
+               chapter_number,
+               sub_index,
+               title,
+               summary,
+               word_count,
+               create_time,
+               update_time
+        FROM novel_chapter
+        WHERE project_id = #{projectId}
+          AND chapter_number &lt; #{currentChapterNumber}
+          AND is_deleted = 0
+          AND generation_status = 'completed'
+        ORDER BY chapter_number ASC, sub_index ASC
+    </select>
+
+    <!-- 获取项目最大章节号 -->
+    <select id="selectMaxChapterNumber" resultType="java.lang.Integer">
+        SELECT COALESCE(MAX(chapter_number), 0)
+        FROM novel_chapter
+        WHERE project_id = #{projectId}
+          AND is_deleted = 0
+    </select>
+
+    <!-- 统计项目章节数和总字数 -->
+    <select id="selectProjectStatistics" resultType="java.util.HashMap">
+        SELECT COUNT(*)                    AS chapterCount,
+               COALESCE(SUM(word_count), 0) AS totalWords
+        FROM novel_chapter
+        WHERE project_id = #{projectId}
+          AND is_deleted = 0
+          AND generation_status = 'completed'
+    </select>
+
+</mapper>

@@ -33,9 +33,9 @@ public class ChapterPolishRequest implements Serializable {
     private String polishType;
 
     /**
-     * 润色使用的风格ID
+     * 润色使用的风格编码
      */
-    private Long styleId;
+    private String styleCode;
 
     /**
      * 自定义润色要求

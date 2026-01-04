@@ -89,9 +89,9 @@ public class NovelChapter extends BaseEntity {
     private Map<String, Object> generationParams;
 
     /**
-     * 写作风格ID
+     * 写作风格编码
      */
-    private Long styleId;
+    private String styleCode;
 
     /**
      * 版本号

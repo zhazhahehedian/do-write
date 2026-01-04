@@ -111,7 +111,7 @@ public class NovelProject extends BaseEntity {
     private String aiModel;
 
     /**
-     * 写作风格id
+     * 写作风格编码
      */
-    private Long writingStyleId;
+    private String writingStyleCode;
 }

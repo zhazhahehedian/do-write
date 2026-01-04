@@ -68,7 +68,7 @@ public class ProjectCreateRequest implements Serializable {
     private String aiModel;
 
     /**
-     * 写作风格ID
+     * 写作风格编码
      */
-    private Long writingStyleId;
+    private String writingStyleCode;
 }

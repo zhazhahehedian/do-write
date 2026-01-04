@@ -111,9 +111,9 @@ public class ProjectVO implements Serializable {
     private String aiModel;
 
     /**
-     * 写作风格ID
+     * 写作风格编码
      */
-    private Long writingStyleId;
+    private String writingStyleCode;
 
     /**
      * 写作风格名称（关联查询）

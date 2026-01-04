@@ -218,7 +218,7 @@ public class ProjectServiceImpl implements ProjectService {
 
     @Override
     public NovelProject checkOwnership(Long userId, Long projectId) {
-        // MyBatis-Plus @TableLogic 已自动过滤已删除记录，selectById 返回 null 即表示不存在或已删除
+
         NovelProject project = projectMapper.selectById(projectId);
 
         if (project == null) {

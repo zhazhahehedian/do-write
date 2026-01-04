@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.dpbug.server.mapper.novel.GenerationTaskMapper">
+
+    <!-- 查询用户进行中的任务 -->
+    <select id="selectRunningTasks" resultType="com.dpbug.server.model.entity.novel.NovelGenerationTask">
+        SELECT *
+        FROM novel_generation_task
+        WHERE user_id = #{userId}
+          AND status IN ('pending', 'running')
+        ORDER BY create_time DESC
+    </select>
+
+    <!-- 更新任务进度 -->
+    <update id="updateProgress">
+        UPDATE novel_generation_task
+        SET progress     = #{progress},
+            current_step = #{currentStep},
+            update_time  = NOW()
+        WHERE id = #{taskId}
+    </update>
+
+</mapper>

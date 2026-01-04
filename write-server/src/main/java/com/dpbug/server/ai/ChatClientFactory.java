@@ -46,6 +46,17 @@ public class ChatClientFactory {
     }
 
     /**
+     * 获取用户当前使用的模型名称
+     *
+     * @param userId 用户ID
+     * @return 模型名称
+     */
+    public String getCurrentModelName(Long userId) {
+        UserApiConfig config = userApiConfigService.getDefaultConfig(userId);
+        return config != null ? config.getModelName() : "unknown";
+    }
+
+    /**
      * 使用指定配置创建 ChatClient
      *
      * @param userId   用户ID

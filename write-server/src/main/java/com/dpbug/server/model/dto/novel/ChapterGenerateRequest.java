@@ -35,9 +35,9 @@ public class ChapterGenerateRequest implements Serializable {
     private Integer subIndex;
 
     /**
-     * 写作风格ID，为空则使用项目默认
+     * 写作风格编码，为空则使用项目默认
      */
-    private Long styleId;
+    private String styleCode;
 
     /**
      * 目标字数，默认从项目配置读取

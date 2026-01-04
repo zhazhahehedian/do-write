@@ -147,9 +147,9 @@ public enum WritingStyle {
             """);
 
     /**
-     * 风格ID（用于存储和查询）
+     * 风格编码（用于存储和查询）
      */
-    private final String id;
+    private final String code;
 
     /**
      * 风格名称
@@ -166,25 +166,25 @@ public enum WritingStyle {
      */
     private final String promptContent;
 
-    WritingStyle(String id, String name, String description, String promptContent) {
-        this.id = id;
+    WritingStyle(String code, String name, String description, String promptContent) {
+        this.code = code;
         this.name = name;
         this.description = description;
         this.promptContent = promptContent;
     }
 
     /**
-     * 根据ID获取写作风格
+     * 根据编码获取写作风格
      *
-     * @param id 风格ID
+     * @param code 风格编码
      * @return 写作风格枚举，如果不存在返回null
      */
-    public static WritingStyle fromId(String id) {
-        if (id == null) {
+    public static WritingStyle fromCode(String code) {
+        if (code == null || code.isBlank()) {
             return null;
         }
         for (WritingStyle style : values()) {
-            if (style.getId().equals(id)) {
+            if (style.getCode().equals(code)) {
                 return style;
             }
         }

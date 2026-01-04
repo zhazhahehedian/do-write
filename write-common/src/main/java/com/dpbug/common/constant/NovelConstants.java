@@ -96,6 +96,24 @@ public interface NovelConstants {
     }
 
     /**
+     * 角色类型
+     */
+    interface RoleType {
+        /**
+         * 主角
+         */
+        String PROTAGONIST = "protagonist";
+        /**
+         * 反派
+         */
+        String ANTAGONIST = "antagonist";
+        /**
+         * 配角
+         */
+        String SUPPORTING = "supporting";
+    }
+
+    /**
      * 小说类型
      */
     interface Genre {
