@@ -39,4 +39,46 @@
         LIMIT #{limit}
     </select>
 
+    <!-- 批量ID查询 -->
+    <select id="selectByIds" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT * FROM novel_story_memory
+        WHERE id IN
+        <foreach collection="ids" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        AND is_deleted = 0
+        ORDER BY story_timeline DESC, importance_score DESC
+    </select>
+
+    <!-- 分页查询 -->
+    <select id="selectPageByProject" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT * FROM novel_story_memory
+        WHERE project_id = #{projectId}
+        AND is_deleted = 0
+        <if test="memoryType != null and memoryType != ''">
+            AND memory_type = #{memoryType}
+        </if>
+        ORDER BY story_timeline DESC, importance_score DESC
+    </select>
+
+    <!-- 按类型统计 -->
+    <select id="countByType" resultType="java.util.Map">
+        SELECT
+            memory_type AS memoryType,
+            COUNT(*) AS count
+        FROM novel_story_memory
+        WHERE project_id = #{projectId}
+          AND is_deleted = 0
+        GROUP BY memory_type
+    </select>
+
+    <!-- 时间线范围查询 -->
+    <select id="selectByTimelineRange" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
+        SELECT * FROM novel_story_memory
+        WHERE project_id = #{projectId}
+          AND is_deleted = 0
+          AND story_timeline BETWEEN #{startTimeline} AND #{endTimeline}
+        ORDER BY story_timeline ASC, importance_score DESC
+    </select>
+
 </mapper>

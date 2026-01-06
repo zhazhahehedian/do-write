@@ -39,7 +39,7 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
     private final WritingStyleManager writingStyleManager;
 
     @Override
-    public ChapterContextVO buildContext(NovelProject project, OutlineVO outline,
+    public ChapterContextVO buildContext(Long userId, NovelProject project, OutlineVO outline,
                                           Integer chapterNumber, ChapterGenerateRequest request) {
         ChapterContextVO context = new ChapterContextVO();
 
@@ -68,7 +68,7 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
 
         // 6. RAG记忆上下文
         if (request.getEnableMemoryRetrieval() == null || request.getEnableMemoryRetrieval()) {
-            buildMemoryContext(context, project.getId(), outline.getContent());
+            buildMemoryContext(context, userId, project.getId(), outline.getContent());
         }
 
         // 7. 写作风格
@@ -159,10 +159,10 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
     /**
      * 构建RAG记忆上下文
      */
-    private void buildMemoryContext(ChapterContextVO context, Long projectId, String outlineContent) {
+    private void buildMemoryContext(ChapterContextVO context, Long userId, Long projectId, String outlineContent) {
         // 1. 语义检索相关记忆
         List<StoryMemoryVO> relatedMemories = storyMemoryService.searchRelatedMemories(
-                projectId, outlineContent, NovelConstants.ChapterConfig.MEMORY_TOP_K);
+                userId, projectId, outlineContent, NovelConstants.ChapterConfig.MEMORY_TOP_K);
         context.setRelatedMemories(relatedMemories);
 
         // 2. 获取未完结伏笔
@@ -224,9 +224,9 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
     }
 
     @Override
-    public String buildMemoryContext(Long projectId, String outlineContent) {
+    public String buildMemoryContext(Long userId, Long projectId, String outlineContent) {
         List<StoryMemoryVO> memories = storyMemoryService.searchRelatedMemories(
-                projectId, outlineContent, NovelConstants.ChapterConfig.MEMORY_TOP_K);
+                userId, projectId, outlineContent, NovelConstants.ChapterConfig.MEMORY_TOP_K);
 
         if (memories.isEmpty()) {
             return "";

@@ -64,7 +64,7 @@ public class ChapterAsyncServiceImpl implements ChapterAsyncService {
             List<NovelStoryMemory> memories = storyMemoryService.extractMemories(
                     userId, projectId, chapterId, chapterNumber, content);
             if (!memories.isEmpty()) {
-                storyMemoryService.saveMemories(projectId, memories);
+                storyMemoryService.saveMemories(userId, projectId, memories);
                 log.info("记忆提取完成: chapterId={}, count={}", chapterId, memories.size());
             }
         } catch (Exception e) {
@@ -193,7 +193,7 @@ public class ChapterAsyncServiceImpl implements ChapterAsyncService {
 
             // 使用 ChapterContextBuilder 构建完整上下文
             ChapterContextVO context = chapterContextBuilder.buildContext(
-                    project, outline, outline.getOrderIndex(), generateRequest);
+                    userId, project, outline, outline.getOrderIndex(), generateRequest);
 
             // 使用 PromptTemplates 构建提示词
             String prompt = buildPromptFromTemplate(project, outline, context, targetWordCount);

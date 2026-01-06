@@ -92,10 +92,21 @@ spring:
     ollama:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
 
-    # 向量存储配置
+    # ChromaDB 向量数据库配置
     vectorstore:
-      simple:
-        enabled: true
+      chroma:
+        client:
+          host: ${CHROMA_HOST:http://localhost}
+          port: ${CHROMA_PORT:8000}
+          # 如果启用了认证，取消注释以下配置
+          # key-token: ${CHROMA_TOKEN:}
+        # 默认 Collection 名称（系统级）
+        collection-name: ${CHROMA_COLLECTION:novel-memories}
+        # 租户和数据库名称（本地部署使用默认值）
+        tenant-name: ${CHROMA_TENANT:default_tenant}
+        database-name: ${CHROMA_DATABASE:default_database}
+        # 自动创建 schema
+        initialize-schema: true
 
 # AI 业务配置
 ai:
@@ -103,10 +114,6 @@ ai:
   # 生产环境请务必修改为自己的32字符密钥
   encryption:
     key: ${AI_ENCRYPTION_KEY:D0-Writ3-32b!t}
-
-  # VectorStore 文件存储路径
-  vector-store:
-    file-path: ${AI_VECTOR_STORE_PATH:./data/vector-store.json}
 
 # 小说生成业务配置
 novel:

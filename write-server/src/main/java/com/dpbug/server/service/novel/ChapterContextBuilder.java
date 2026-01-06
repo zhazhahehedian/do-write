@@ -15,6 +15,7 @@ public interface ChapterContextBuilder {
     /**
      * 构建完整的生成上下文
      *
+     * @param userId        用户ID（用于向量存储访问）
      * @param project       项目信息
      * @param outline       当前大纲
      * @param chapterNumber 当前章节号
@@ -22,6 +23,7 @@ public interface ChapterContextBuilder {
      * @return 上下文VO
      */
     ChapterContextVO buildContext(
+            Long userId,
             NovelProject project,
             OutlineVO outline,
             Integer chapterNumber,
@@ -40,9 +42,10 @@ public interface ChapterContextBuilder {
     /**
      * 构建RAG记忆上下文
      *
+     * @param userId         用户ID（用于向量存储访问）
      * @param projectId      项目ID
      * @param outlineContent 大纲内容
      * @return 记忆上下文字符串
      */
-    String buildMemoryContext(Long projectId, String outlineContent);
+    String buildMemoryContext(Long userId, Long projectId, String outlineContent);
 }

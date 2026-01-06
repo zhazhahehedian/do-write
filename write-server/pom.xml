@@ -56,10 +56,10 @@
             <artifactId>spring-ai-starter-model-ollama</artifactId>
         </dependency>
 
-        <!-- Spring AI Vector Store (for SimpleVectorStore) -->
+        <!-- Spring AI ChromaDB Vector Store -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-vector-store</artifactId>
+            <artifactId>spring-ai-starter-vector-store-chroma</artifactId>
         </dependency>
 
         <!-- MyBatis Plus -->

@@ -8,14 +8,18 @@ import com.dpbug.common.domain.PageResult;
 import com.dpbug.common.enums.ResultCode;
 import com.dpbug.common.exception.BusinessException;
 import com.dpbug.server.mapper.novel.CharacterMapper;
+import com.dpbug.server.mapper.novel.ChapterMapper;
 import com.dpbug.server.mapper.novel.OutlineMapper;
 import com.dpbug.server.mapper.novel.ProjectMapper;
+import com.dpbug.server.mapper.novel.StoryMemoryMapper;
 import com.dpbug.server.model.dto.novel.ProjectCreateRequest;
 import com.dpbug.server.model.dto.novel.ProjectQueryRequest;
 import com.dpbug.server.model.dto.novel.ProjectUpdateRequest;
+import com.dpbug.server.model.entity.novel.NovelChapter;
 import com.dpbug.server.model.entity.novel.NovelCharacter;
 import com.dpbug.server.model.entity.novel.NovelOutline;
 import com.dpbug.server.model.entity.novel.NovelProject;
+import com.dpbug.server.model.entity.novel.NovelStoryMemory;
 import com.dpbug.server.model.vo.novel.ProjectListVO;
 import com.dpbug.server.model.vo.novel.ProjectStatisticsVO;
 import com.dpbug.server.model.vo.novel.ProjectVO;
@@ -42,6 +46,8 @@ public class ProjectServiceImpl implements ProjectService {
     private final ProjectMapper projectMapper;
     private final CharacterMapper characterMapper;
     private final OutlineMapper outlineMapper;
+    private final ChapterMapper chapterMapper;
+    private final StoryMemoryMapper storyMemoryMapper;
 
     @Override
     public Long create(Long userId, ProjectCreateRequest dto) {
@@ -95,8 +101,10 @@ public class ProjectServiceImpl implements ProjectService {
         outlineWrapper.eq(NovelOutline::getProjectId, projectId);
         vo.setActualOutlineCount((int) (long) outlineMapper.selectCount(outlineWrapper));
 
-        // TODO: 章节数量统计（待章节模块实现后添加）
-        vo.setActualChapterCount(0);
+        // 查询章节数量
+        LambdaQueryWrapper<NovelChapter> chapterWrapper = new LambdaQueryWrapper<>();
+        chapterWrapper.eq(NovelChapter::getProjectId, projectId);
+        vo.setActualChapterCount((int) (long) chapterMapper.selectCount(chapterWrapper));
     }
 
     @Override
@@ -128,8 +136,15 @@ public class ProjectServiceImpl implements ProjectService {
         outlineWrapper.eq(NovelOutline::getProjectId, projectId);
         outlineMapper.delete(outlineWrapper);
 
-        // TODO: 级联删除章节（待章节模块实现后添加）
-        // TODO: 级联删除故事记忆（待记忆模块实现后添加）
+        // 级联删除章节
+        LambdaUpdateWrapper<NovelChapter> chapterWrapper = new LambdaUpdateWrapper<>();
+        chapterWrapper.eq(NovelChapter::getProjectId, projectId);
+        chapterMapper.delete(chapterWrapper);
+
+        // 级联删除故事记忆
+        LambdaUpdateWrapper<NovelStoryMemory> memoryWrapper = new LambdaUpdateWrapper<>();
+        memoryWrapper.eq(NovelStoryMemory::getProjectId, projectId);
+        storyMemoryMapper.delete(memoryWrapper);
 
         // 逻辑删除项目
         projectMapper.deleteById(projectId);

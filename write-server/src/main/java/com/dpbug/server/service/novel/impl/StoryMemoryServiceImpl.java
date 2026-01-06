@@ -4,14 +4,22 @@ import com.alibaba.fastjson2.JSON;
 import com.alibaba.fastjson2.JSONArray;
 import com.alibaba.fastjson2.JSONObject;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dpbug.common.constant.NovelConstants;
-import com.dpbug.server.mapper.novel.StoryMemoryMapper;
-import com.dpbug.server.model.entity.novel.NovelStoryMemory;
-import com.dpbug.server.model.vo.novel.StoryMemoryVO;
+import com.dpbug.common.domain.PageResult;
 import com.dpbug.server.ai.ChatClientFactory;
+import com.dpbug.server.ai.config.ChromaVectorStoreFactory;
+import com.dpbug.server.mapper.novel.StoryMemoryMapper;
+import com.dpbug.server.model.dto.novel.StoryMemoryQueryRequest;
+import com.dpbug.server.model.entity.novel.NovelStoryMemory;
+import com.dpbug.server.model.vo.novel.ChapterDetailVO;
+import com.dpbug.server.model.vo.novel.MemoryStatisticsVO;
+import com.dpbug.server.model.vo.novel.StoryMemoryVO;
+import com.dpbug.server.service.novel.ChapterService;
 import com.dpbug.server.service.novel.StoryMemoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -21,16 +29,20 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.math.BigDecimal;
 import java.util.UUID;
 
 /**
  * 故事记忆服务实现类
+ *
+ * <p>使用 ChromaDB 作为向量数据库，通过 ChromaVectorStoreFactory 实现用户-项目级别的数据隔离。</p>
+ * <p>每个用户的每个项目拥有独立的 ChromaDB Collection。</p>
  *
  * @author dpbug
  */
@@ -41,8 +53,9 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
 
     private final StoryMemoryMapper storyMemoryMapper;
     private final ChatClientFactory chatClientFactory;
-    private final VectorStore vectorStore;
+    private final ChromaVectorStoreFactory chromaVectorStoreFactory;
     private final EmbeddingModel embeddingModel;
+    private final ChapterService chapterService;
 
     private static final String MEMORY_EXTRACTION_PROMPT = """
             分析以下章节内容,提取关键记忆点。请以JSON格式返回,包含以下类型:
@@ -65,6 +78,17 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
             请返回JSON格式:
             {"memories": [...]}
             """;
+
+    /**
+     * 获取项目专属的 VectorStore
+     *
+     * @param userId    用户ID
+     * @param projectId 项目ID
+     * @return VectorStore 实例
+     */
+    private VectorStore getVectorStore(Long userId, Long projectId) {
+        return chromaVectorStoreFactory.getVectorStore(userId, projectId);
+    }
 
     @Override
     public List<NovelStoryMemory> extractMemories(Long userId, Long projectId, Long chapterId,
@@ -128,10 +152,13 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
     }
 
     @Override
-    public void saveMemories(Long projectId, List<NovelStoryMemory> memories) {
+    public void saveMemories(Long userId, Long projectId, List<NovelStoryMemory> memories) {
         if (memories == null || memories.isEmpty()) {
             return;
         }
+
+        // 获取项目专属的 VectorStore
+        VectorStore vectorStore = getVectorStore(userId, projectId);
 
         for (NovelStoryMemory memory : memories) {
             // 保存到MySQL
@@ -139,7 +166,7 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
 
             // 向量化并存储到VectorStore
             try {
-                String vectorId = storeToVectorStore(projectId, memory);
+                String vectorId = storeToVectorStore(vectorStore, projectId, memory);
                 memory.setVectorId(vectorId);
                 memory.setEmbeddingModel(embeddingModel.getClass().getSimpleName());
                 storyMemoryMapper.updateById(memory);
@@ -154,11 +181,12 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
     /**
      * 存储记忆到向量数据库
      *
-     * @param projectId 项目ID
-     * @param memory    记忆实体
+     * @param vectorStore 向量存储实例
+     * @param projectId   项目ID
+     * @param memory      记忆实体
      * @return 向量ID
      */
-    private String storeToVectorStore(Long projectId, NovelStoryMemory memory) {
+    private String storeToVectorStore(VectorStore vectorStore, Long projectId, NovelStoryMemory memory) {
         // 生成唯一向量ID
         String vectorId = UUID.randomUUID().toString();
 
@@ -170,8 +198,10 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
                 "project_id", projectId.toString(),
                 "memory_id", memory.getId().toString(),
                 "chapter_id", memory.getChapterId().toString(),
+                "chapter_number", memory.getStoryTimeline(),
                 "memory_type", memory.getMemoryType(),
-                "importance_score", memory.getImportanceScore().doubleValue()
+                "importance_score", memory.getImportanceScore().doubleValue(),
+                "is_foreshadow", memory.getIsForeshadow()
         );
 
         // 创建Document并存储
@@ -182,12 +212,15 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
     }
 
     @Override
-    public List<StoryMemoryVO> searchRelatedMemories(Long projectId, String query, int topK) {
+    public List<StoryMemoryVO> searchRelatedMemories(Long userId, Long projectId, String query, int topK) {
         if (query == null || query.isBlank()) {
             return Collections.emptyList();
         }
 
         try {
+            // 获取项目专属的 VectorStore
+            VectorStore vectorStore = getVectorStore(userId, projectId);
+
             // 构建过滤表达式：只检索当前项目的记忆
             FilterExpressionBuilder builder = new FilterExpressionBuilder();
             var filterExpression = builder.eq("project_id", projectId.toString()).build();
@@ -272,7 +305,7 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
     }
 
     @Override
-    public void deleteByChapter(Long chapterId) {
+    public void deleteByChapter(Long userId, Long projectId, Long chapterId) {
         // 查询该章节的所有记忆
         List<NovelStoryMemory> memories = storyMemoryMapper.selectByChapterId(chapterId);
 
@@ -281,8 +314,10 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
                 .map(NovelStoryMemory::getVectorId)
                 .filter(Objects::nonNull)
                 .toList();
+
         if (!vectorIds.isEmpty()) {
             try {
+                VectorStore vectorStore = getVectorStore(userId, projectId);
                 vectorStore.delete(vectorIds);
                 log.debug("向量存储删除成功: count={}", vectorIds.size());
             } catch (Exception e) {
@@ -296,6 +331,147 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
         storyMemoryMapper.delete(wrapper);
 
         log.info("删除章节记忆: chapterId={}, count={}", chapterId, memories.size());
+    }
+
+    @Override
+    public void deleteByProject(Long userId, Long projectId) {
+        log.info("删除项目所有记忆: userId={}, projectId={}", userId, projectId);
+
+        // 1. 删除 ChromaDB Collection（包含所有向量数据）
+        boolean deleted = chromaVectorStoreFactory.deleteCollection(userId, projectId);
+        if (deleted) {
+            log.info("ChromaDB Collection 删除成功: userId={}, projectId={}", userId, projectId);
+        }
+
+        // 2. 从 MySQL 删除所有记忆
+        LambdaQueryWrapper<NovelStoryMemory> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelStoryMemory::getProjectId, projectId);
+        int count = storyMemoryMapper.delete(wrapper);
+
+        log.info("项目记忆删除完成: projectId={}, mysqlCount={}", projectId, count);
+    }
+
+    @Override
+    public PageResult<StoryMemoryVO> listByProject(StoryMemoryQueryRequest request) {
+
+        Page<NovelStoryMemory> page = new Page<>(request.getPageNum(), request.getPageSize());
+
+        LambdaQueryWrapper<NovelStoryMemory> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelStoryMemory::getProjectId, request.getProjectId())
+                .eq(NovelStoryMemory::getIsDeleted, 0);
+        if (request.getChapterId() != null) {
+            wrapper.eq(NovelStoryMemory::getChapterId, request.getChapterId());
+        }
+        if (StringUtils.isNotEmpty(request.getMemoryType())) {
+            wrapper.eq(NovelStoryMemory::getMemoryType, request.getMemoryType());
+        }
+        if (request.getForeshadowStatus() != null) {
+            wrapper.eq(NovelStoryMemory::getIsForeshadow, request.getForeshadowStatus());
+        }
+        if (request.getMinImportance() != null) {
+            wrapper.ge(NovelStoryMemory::getImportanceScore, request.getMinImportance());
+        }
+        if (request.getStartTimeline() != null && request.getEndTimeline() != null) {
+            wrapper.between(NovelStoryMemory::getStoryTimeline,
+                    request.getStartTimeline(), request.getEndTimeline());
+        }
+        wrapper.orderByDesc(NovelStoryMemory::getStoryTimeline)
+                .orderByDesc(NovelStoryMemory::getImportanceScore);
+        Page<NovelStoryMemory> resultPage = storyMemoryMapper.selectPage(page, wrapper);
+
+
+        List<StoryMemoryVO> voList = resultPage.getRecords().stream()
+                .map(this::convertToVO)
+                .toList();
+
+        return PageResult.of(
+                request.getPageNum(),
+                request.getPageSize(),
+                resultPage.getTotal(),
+                voList
+        );
+    }
+
+    @Override
+    public List<StoryMemoryVO> listByChapter(Long chapterId) {
+        List<NovelStoryMemory> memories = storyMemoryMapper.selectByChapterId(chapterId);
+        return memories.stream()
+                .map(this::convertToVO)
+                .toList();
+    }
+
+    @Override
+    public MemoryStatisticsVO getStatistics(Long projectId) {
+        MemoryStatisticsVO vo = new MemoryStatisticsVO();
+        vo.setProjectId(projectId);
+
+        // 按类型统计
+        List<Map<String, Object>> typeCounts = storyMemoryMapper.countByType(projectId);
+        Map<String, Integer> typeCountMap = new HashMap<>();
+        int total = 0;
+        for (Map<String, Object> tc : typeCounts) {
+            String type = (String) tc.get("memoryType");
+            int count = ((Number) tc.get("count")).intValue();
+            typeCountMap.put(type, count);
+            total += count;
+        }
+        vo.setTypeCount(typeCountMap);
+        vo.setTotalCount(total);
+
+        // 伏笔统计
+        LambdaQueryWrapper<NovelStoryMemory> pendingWrapper = new LambdaQueryWrapper<>();
+        pendingWrapper.eq(NovelStoryMemory::getProjectId, projectId)
+                .eq(NovelStoryMemory::getIsForeshadow, NovelConstants.ForeshadowStatus.PLANTED)
+                .eq(NovelStoryMemory::getIsDeleted, 0);
+        vo.setPendingForeshadowCount(Math.toIntExact(storyMemoryMapper.selectCount(pendingWrapper)));
+
+        LambdaQueryWrapper<NovelStoryMemory> resolvedWrapper = new LambdaQueryWrapper<>();
+        resolvedWrapper.eq(NovelStoryMemory::getProjectId, projectId)
+                .eq(NovelStoryMemory::getIsForeshadow, NovelConstants.ForeshadowStatus.RESOLVED)
+                .eq(NovelStoryMemory::getIsDeleted, 0);
+        vo.setResolvedForeshadowCount(Math.toIntExact(storyMemoryMapper.selectCount(resolvedWrapper)));
+
+        // 覆盖章节数
+        LambdaQueryWrapper<NovelStoryMemory> chapterWrapper = new LambdaQueryWrapper<>();
+        chapterWrapper.eq(NovelStoryMemory::getProjectId, projectId)
+                .eq(NovelStoryMemory::getIsDeleted, 0)
+                .select(NovelStoryMemory::getChapterId)
+                .groupBy(NovelStoryMemory::getChapterId);
+        vo.setCoveredChapterCount(Math.toIntExact(storyMemoryMapper.selectCount(chapterWrapper)));
+
+        return vo;
+    }
+
+    @Override
+    public List<StoryMemoryVO> listByTimelineRange(Long projectId, Integer start, Integer end) {
+        List<NovelStoryMemory> memories = storyMemoryMapper.selectByTimelineRange(projectId, start, end);
+        return memories.stream()
+                .map(this::convertToVO)
+                .toList();
+    }
+
+    @Override
+    public void reExtractMemories(Long userId, Long chapterId) {
+        ChapterDetailVO chapterDetailVO = chapterService.getDetail(userId, chapterId);
+
+        // 2. 删除旧记忆
+        deleteByChapter(userId, chapterDetailVO.getProjectId(), chapterId);
+
+        // 3. 重新提取
+        List<NovelStoryMemory> memories = extractMemories(
+                userId,
+                chapterDetailVO.getProjectId(),
+                chapterId,
+                chapterDetailVO.getChapterNumber(),
+                chapterDetailVO.getContent()
+        );
+
+        // 4. 保存新记忆
+        if (!memories.isEmpty()) {
+            saveMemories(userId, chapterDetailVO.getProjectId(), memories);
+        }
+
+        log.info("重新提取章节记忆完成: chapterId={}, count={}", chapterId, memories.size());
     }
 
     /**

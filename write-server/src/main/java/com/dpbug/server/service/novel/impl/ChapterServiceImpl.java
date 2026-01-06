@@ -90,7 +90,7 @@ public class ChapterServiceImpl implements ChapterService {
             // 创建章节记录(状态:generating)
             NovelChapter chapter = createChapterRecord(project, outline, chapterNumber, request);
 
-            ChapterContextVO context = contextBuilder.buildContext(project, outline, chapterNumber, request);
+            ChapterContextVO context = contextBuilder.buildContext(userId, project, outline, chapterNumber, request);
 
             String systemPrompt = buildSystemPrompt(context, request);
             String userPrompt = buildUserPrompt(context, request);
@@ -385,7 +385,7 @@ public class ChapterServiceImpl implements ChapterService {
                 chapterId, newChapter.getId(), newChapter.getVersion());
 
         // 构建上下文
-        ChapterContextVO context = contextBuilder.buildContext(project, outline,
+        ChapterContextVO context = contextBuilder.buildContext(userId, project, outline,
                 newChapter.getChapterNumber(), request);
 
         // 构建提示词
@@ -603,7 +603,7 @@ public class ChapterServiceImpl implements ChapterService {
         chapterMapper.deleteById(chapterId);
 
         // 删除关联的记忆
-        storyMemoryService.deleteByChapter(chapterId);
+        storyMemoryService.deleteByChapter(userId, chapter.getProjectId(), chapterId);
 
         log.info("删除章节: userId={}, chapterId={}", userId, chapterId);
     }
@@ -623,7 +623,7 @@ public class ChapterServiceImpl implements ChapterService {
         ChapterGenerateRequest dummyRequest = new ChapterGenerateRequest();
         dummyRequest.setEnableMemoryRetrieval(true);
 
-        return contextBuilder.buildContext(project, outline, chapterNumber, dummyRequest);
+        return contextBuilder.buildContext(userId, project, outline, chapterNumber, dummyRequest);
     }
 
     /**
