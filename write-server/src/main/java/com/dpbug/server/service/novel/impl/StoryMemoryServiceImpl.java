@@ -8,14 +8,14 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.dpbug.common.constant.NovelConstants;
 import com.dpbug.common.domain.PageResult;
 import com.dpbug.server.ai.ChatClientFactory;
-import com.dpbug.server.ai.config.ChromaVectorStoreFactory;
+import com.dpbug.server.ai.ChromaVectorStoreFactory;
+import com.dpbug.server.mapper.novel.ChapterMapper;
 import com.dpbug.server.mapper.novel.StoryMemoryMapper;
 import com.dpbug.server.model.dto.novel.StoryMemoryQueryRequest;
+import com.dpbug.server.model.entity.novel.NovelChapter;
 import com.dpbug.server.model.entity.novel.NovelStoryMemory;
-import com.dpbug.server.model.vo.novel.ChapterDetailVO;
 import com.dpbug.server.model.vo.novel.MemoryStatisticsVO;
 import com.dpbug.server.model.vo.novel.StoryMemoryVO;
-import com.dpbug.server.service.novel.ChapterService;
 import com.dpbug.server.service.novel.StoryMemoryService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,10 +52,10 @@ import java.util.UUID;
 public class StoryMemoryServiceImpl implements StoryMemoryService {
 
     private final StoryMemoryMapper storyMemoryMapper;
+    private final ChapterMapper chapterMapper;
     private final ChatClientFactory chatClientFactory;
     private final ChromaVectorStoreFactory chromaVectorStoreFactory;
     private final EmbeddingModel embeddingModel;
-    private final ChapterService chapterService;
 
     private static final String MEMORY_EXTRACTION_PROMPT = """
             分析以下章节内容,提取关键记忆点。请以JSON格式返回,包含以下类型:
@@ -452,23 +452,28 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
 
     @Override
     public void reExtractMemories(Long userId, Long chapterId) {
-        ChapterDetailVO chapterDetailVO = chapterService.getDetail(userId, chapterId);
+        // 1. 直接查询章节信息
+        NovelChapter chapter = chapterMapper.selectById(chapterId);
+        if (chapter == null) {
+            log.warn("章节不存在: chapterId={}", chapterId);
+            return;
+        }
 
         // 2. 删除旧记忆
-        deleteByChapter(userId, chapterDetailVO.getProjectId(), chapterId);
+        deleteByChapter(userId, chapter.getProjectId(), chapterId);
 
         // 3. 重新提取
         List<NovelStoryMemory> memories = extractMemories(
                 userId,
-                chapterDetailVO.getProjectId(),
+                chapter.getProjectId(),
                 chapterId,
-                chapterDetailVO.getChapterNumber(),
-                chapterDetailVO.getContent()
+                chapter.getChapterNumber(),
+                chapter.getContent()
         );
 
         // 4. 保存新记忆
         if (!memories.isEmpty()) {
-            saveMemories(userId, chapterDetailVO.getProjectId(), memories);
+            saveMemories(userId, chapter.getProjectId(), memories);
         }
 
         log.info("重新提取章节记忆完成: chapterId={}, count={}", chapterId, memories.size());

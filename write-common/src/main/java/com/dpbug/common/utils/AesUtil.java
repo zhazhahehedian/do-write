@@ -8,6 +8,7 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -160,20 +161,8 @@ public class AesUtil {
     private static SecretKeySpec generateKey(String secretKey) {
         try {
             // 使用SHA-256对密钥进行哈希，确保密钥长度为32字节（256位）
-            byte[] keyBytes = secretKey.getBytes(StandardCharsets.UTF_8);
-
-            // 如果密钥长度不足32字节，使用KeyGenerator生成
-            if (keyBytes.length < 32) {
-                KeyGenerator keyGenerator = KeyGenerator.getInstance(ALGORITHM);
-                SecureRandom secureRandom = new SecureRandom(keyBytes);
-                keyGenerator.init(KEY_SIZE, secureRandom);
-                SecretKey key = keyGenerator.generateKey();
-                return new SecretKeySpec(key.getEncoded(), ALGORITHM);
-            }
-
-            // 取前32字节作为密钥
-            byte[] key = new byte[32];
-            System.arraycopy(keyBytes, 0, key, 0, Math.min(keyBytes.length, 32));
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] key = digest.digest(secretKey.getBytes(StandardCharsets.UTF_8));
             return new SecretKeySpec(key, ALGORITHM);
         } catch (Exception e) {
             log.error("生成密钥失败", e);

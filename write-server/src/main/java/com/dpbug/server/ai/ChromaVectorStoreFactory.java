@@ -1,4 +1,4 @@
-package com.dpbug.server.ai.config;
+package com.dpbug.server.ai;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chroma.vectorstore.ChromaApi;

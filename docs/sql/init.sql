@@ -122,7 +122,7 @@ CREATE TABLE `user_api_config` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_user_config` (`user_id`, `config_name`, `is_deleted`),
     KEY `idx_user_id` (`user_id`),
-    KEY `idx_provider` (`provider_type`)
+    KEY `idx_provider` (`api_type`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户AI API配置表';
 
 -- ==========================================
@@ -406,6 +406,12 @@ CREATE TABLE `novel_generation_task` (
 INSERT INTO `user` (`id`, `username`, `nickname`, `email`, `password`, `status`, `user_type`) VALUES
 (1000000000000000001, 'admin', '管理员', 'admin@example.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 1, 'ADMIN'),
 (1000000000000000002, 'test', '测试用户', 'test@example.com', '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iKTVKIUi', 1, 'NORMAL');
+
+-- 插入系统级嵌入模型配置（user_id=0 表示系统配置，用于向量搜索）
+-- 注意：api_key 需要根据实际情况填写并进行 AES-256 加密，这里使用占位符
+-- 可选模型示例：text-embedding-3-small (OpenAI), text-embedding-ada-002 (OpenAI), nomic-embed-text (Ollama)
+INSERT INTO `user_api_config` (`id`, `user_id`, `api_type`, `config_name`, `api_key`, `base_url`, `embedding_model`, `is_default`, `status`, `remark`) VALUES
+(1000000000000000001, 0, 'OPENAI', '系统嵌入模型配置', NULL, 'https://api.openai.com', 'text-embedding-3-small', 1, 1, '系统级嵌入模型，用于故事记忆向量化。请在管理后台配置实际的 API Key');
 
 -- 创建索引优化查询性能
 -- 用户表额外索引

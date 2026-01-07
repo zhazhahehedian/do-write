@@ -14,8 +14,16 @@ import com.dpbug.server.service.user.UserApiConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -271,14 +279,52 @@ public class UserApiConfigServiceImpl extends ServiceImpl<UserApiConfigMapper, U
             Assert.notBlank(dto.getApiKey(), "API Key不能为空");
             Assert.notBlank(dto.getApiType(), "API类型不能为空");
 
-            // TODO: 这里可以添加实际的API验证逻辑
-            // 例如：调用OpenAI的模型列表接口来验证API Key是否有效
+            String apiType = dto.getApiType().trim().toUpperCase();
+            String baseUrl = dto.getBaseUrl();
+            if (baseUrl != null) {
+                baseUrl = baseUrl.trim();
+            }
 
-            return true;
+            SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+            requestFactory.setConnectTimeout(3000);
+            requestFactory.setReadTimeout(5000);
+            RestTemplate restTemplate = new RestTemplate(requestFactory);
+
+            if ("OLLAMA".equals(apiType)) {
+                String targetBaseUrl = (baseUrl != null && !baseUrl.isEmpty()) ? baseUrl : "http://localhost:11434";
+                String url = normalizeBaseUrl(targetBaseUrl) + "/api/tags";
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, String.class);
+                return response.getStatusCode().is2xxSuccessful();
+            }
+
+            // OPENAI / AZURE_OPENAI / CUSTOM 默认按 OpenAI 兼容接口验证
+            String targetBaseUrl = (baseUrl != null && !baseUrl.isEmpty()) ? baseUrl : "https://api.openai.com";
+            String normalized = normalizeBaseUrl(targetBaseUrl);
+            String url = normalized.contains("/v1") ? normalized + "/models" : normalized + "/v1/models";
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setBearerAuth(dto.getApiKey().trim());
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, new HttpEntity<>(headers), String.class);
+            return response.getStatusCode().is2xxSuccessful();
+        } catch (HttpStatusCodeException e) {
+            return false;
         } catch (Exception e) {
             log.error("验证API配置失败", e);
             return false;
         }
+    }
+
+    private String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null) {
+            return "";
+        }
+        String trimmed = baseUrl.trim();
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
     }
 
     @Override

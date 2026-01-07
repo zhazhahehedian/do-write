@@ -5,6 +5,7 @@ import com.dpbug.common.domain.Result;
 import com.dpbug.server.model.entity.user.User;
 import com.dpbug.server.service.auth.AuthService;
 import com.dpbug.server.model.dto.auth.LoginRequest;
+import com.dpbug.server.model.dto.auth.LoginResponse;
 import com.dpbug.server.model.dto.auth.RegisterRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,9 +38,9 @@ public class AuthController {
      * 账号密码登录
      */
     @PostMapping("/login")
-    public Result<String> login(@RequestBody LoginRequest request) {
+    public Result<LoginResponse> login(@RequestBody LoginRequest request) {
         String token = authService.login(request.getUsername(), request.getPassword());
-        return Result.success(token);
+        return Result.success(LoginResponse.of(token));
     }
 
     /**

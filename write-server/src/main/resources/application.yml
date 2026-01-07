@@ -155,6 +155,8 @@ mybatis-plus:
 sa-token:
   # token 名称（同时也是 cookie 名称）
   token-name: Authorization
+  # token 前缀
+  token-prefix: Bearer
   # token 有效期（单位：秒）7天
   timeout: 604800
   # token 最低活跃频率（单位：秒），-1 表示不限制
