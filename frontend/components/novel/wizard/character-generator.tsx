@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useCallback, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -17,12 +17,14 @@ import type { GenerationTask } from '@/lib/types/wizard'
 
 interface CharacterGeneratorProps {
   projectId: string
+  readOnly?: boolean
   initialCharacters?: Character[]
   onComplete?: (characters: Character[]) => void
 }
 
 export function CharacterGenerator({
   projectId,
+  readOnly = false,
   initialCharacters = [],
   onComplete,
 }: CharacterGeneratorProps) {
@@ -38,6 +40,18 @@ export function CharacterGenerator({
   const [currentStep, setCurrentStep] = useState('')
 
   const queryClient = useQueryClient()
+
+  const { data: loadedCharacters, isLoading: isLoadingCharacters } = useQuery({
+    queryKey: ['wizard-characters', projectId],
+    queryFn: () => characterApi.listByProject(projectId),
+    enabled: !!projectId,
+  })
+
+  useEffect(() => {
+    if (!loadedCharacters) return
+    if (isGenerating) return
+    setCharacters(loadedCharacters)
+  }, [isGenerating, loadedCharacters])
 
   // 任务完成时的处理
   const handleTaskComplete = useCallback(async (task: GenerationTask) => {
@@ -98,6 +112,7 @@ export function CharacterGenerator({
   })
 
   const handleGenerate = () => {
+    if (readOnly) return
     // 清空之前的角色（重新生成场景）
     if (characters.length > 0) {
       setCharacters([])
@@ -122,6 +137,12 @@ export function CharacterGenerator({
 
   return (
     <div className="space-y-6">
+      {readOnly && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+          该步骤已完成，当前为回看模式。
+        </div>
+      )}
+
       {/* 生成进度 */}
       {isGenerating && (
         <Card>
@@ -147,6 +168,12 @@ export function CharacterGenerator({
             </Button>
           </CardContent>
         </Card>
+      )}
+
+      {isLoadingCharacters && !isGenerating && characters.length === 0 && (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
       )}
 
       {/* 配置表单 */}
@@ -220,7 +247,7 @@ export function CharacterGenerator({
 
             <Button
               onClick={handleGenerate}
-              disabled={isPending}
+              disabled={isPending || readOnly}
               className="w-full"
             >
               {isPending ? (
@@ -253,7 +280,7 @@ export function CharacterGenerator({
             <Button
               variant="outline"
               onClick={handleGenerate}
-              disabled={isPending}
+              disabled={isPending || readOnly}
             >
               {isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -262,10 +289,12 @@ export function CharacterGenerator({
               )}
               重新生成
             </Button>
-            <Button onClick={() => onComplete?.(characters)}>
-              <Check className="mr-2 h-4 w-4" />
-              确认并继续
-            </Button>
+            {!readOnly && (
+              <Button onClick={() => onComplete?.(characters)}>
+                <Check className="mr-2 h-4 w-4" />
+                确认并继续
+              </Button>
+            )}
           </div>
         </>
       )}

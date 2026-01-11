@@ -6,7 +6,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { OutlineList } from '@/components/novel/outline/outline-list'
 import { OutlineFormDialog } from '@/components/novel/outline/outline-form-dialog'
 import { ChapterGenerateDialog } from '@/components/novel/chapter/chapter-generate-dialog'
+import { OutlineExpandDialog } from '@/components/novel/outline/outline-expand-dialog'
 import { outlineApi } from '@/lib/api/outline'
+import { projectApi } from '@/lib/api/project'
 import { toast } from 'sonner'
 import type { Outline } from '@/lib/types/outline'
 import {
@@ -31,6 +33,14 @@ export default function OutlinesPage() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
   const [generateDialogOpen, setGenerateDialogOpen] = useState(false)
   const [generatingOutline, setGeneratingOutline] = useState<Outline | null>(null)
+  const [expandDialogOpen, setExpandDialogOpen] = useState(false)
+  const [expandingOutline, setExpandingOutline] = useState<Outline | null>(null)
+
+  // 获取项目信息以确定 outlineMode
+  const { data: project } = useQuery({
+    queryKey: ['project', projectId],
+    queryFn: () => projectApi.getById(projectId),
+  })
 
   const { data: outlines, isLoading } = useQuery({
     queryKey: ['outlines', projectId],
@@ -64,6 +74,11 @@ export default function OutlinesPage() {
     setGenerateDialogOpen(true)
   }
 
+  const handleExpandOutline = (outline: Outline) => {
+    setExpandingOutline(outline)
+    setExpandDialogOpen(true)
+  }
+
   const outlineList = outlines || []
   const nextOrderIndex = outlineList.length > 0
     ? Math.max(...outlineList.map(o => o.orderIndex)) + 1
@@ -78,10 +93,12 @@ export default function OutlinesPage() {
       <OutlineList
         outlines={outlineList}
         isLoading={isLoading}
+        outlineMode={project?.outlineMode}
         onAdd={handleAdd}
         onEdit={handleEdit}
         onDelete={(id) => setPendingDeleteId(id)}
         onGenerateChapter={handleGenerateChapter}
+        onExpandOutline={handleExpandOutline}
       />
 
       <OutlineFormDialog
@@ -97,6 +114,13 @@ export default function OutlinesPage() {
         onOpenChange={setGenerateDialogOpen}
         projectId={projectId}
         outline={generatingOutline}
+      />
+
+      <OutlineExpandDialog
+        open={expandDialogOpen}
+        onOpenChange={setExpandDialogOpen}
+        projectId={projectId}
+        outline={expandingOutline}
       />
 
       <AlertDialog

@@ -1,5 +1,6 @@
 package com.dpbug.server.service.novel.impl;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.dpbug.common.constant.NovelConstants;
 import com.dpbug.server.ai.prompt.WritingStyleManager;
 import com.dpbug.server.mapper.novel.ChapterMapper;
@@ -80,7 +81,42 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
         }
         // 如果请求没有指定风格，暂不使用项目默认风格（因为类型不匹配，后续可扩展）
 
+        // 8. 展开规划（one-to-many模式）
+        buildExpansionPlanContext(context, outline.getId(), request.getSubIndex());
+
         return context;
+    }
+
+    /**
+     * 构建展开规划上下文
+     * <p>
+     * 查找已存在的章节记录，获取其 expansionPlan
+     */
+    private void buildExpansionPlanContext(ChapterContextVO context, Long outlineId, Integer subIndex) {
+        if (outlineId == null) {
+            return;
+        }
+
+        // 查询该大纲下的章节，优先按 subIndex 匹配
+        LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelChapter::getOutlineId, outlineId);
+        if (subIndex != null && subIndex > 0) {
+            wrapper.eq(NovelChapter::getSubIndex, subIndex);
+        } else {
+            // 没有指定 subIndex，取第一个
+            wrapper.orderByAsc(NovelChapter::getSubIndex);
+            wrapper.last("LIMIT 1");
+        }
+
+        List<NovelChapter> chapters = chapterMapper.selectList(wrapper);
+        if (!chapters.isEmpty()) {
+            NovelChapter chapter = chapters.get(0);
+            if (chapter.getExpansionPlan() != null && !chapter.getExpansionPlan().isEmpty()) {
+                context.setExpansionPlan(chapter.getExpansionPlan());
+                log.debug("已加载章节展开规划: outlineId={}, subIndex={}, expansionPlan={}",
+                        outlineId, subIndex, chapter.getExpansionPlan());
+            }
+        }
     }
 
     /**

@@ -156,16 +156,19 @@ public class ChapterServiceImpl implements ChapterService {
     }
 
     /**
-     * 计算章节号
+     * 计算章节号（全局连续递增策略）
+     * <p>
+     * 无论是 one-to-one 还是 one-to-many 模式，章节号都采用全局连续递增。
+     * - 新章节的编号 = 当前项目最大章节号 + 1
+     * - 如果项目没有章节，从 1 开始
+     * </p>
      */
     private Integer calculateChapterNumber(Long projectId, OutlineVO outline, Integer subIndex) {
-        if (subIndex == null || subIndex == 0) {
-            // one-to-one 模式:章节号 = 大纲序号
-            return outline.getOrderIndex();
-        } else {
-            // one-to-many 模式:需要计算实际章节号
-            return outline.getOrderIndex() * 10 + subIndex;
-        }
+        // 查询当前项目的最大章节号
+        Integer maxChapterNumber = chapterMapper.selectMaxChapterNumber(projectId);
+
+        // 新章节号 = 最大章节号 + 1，如果没有章节则从 1 开始
+        return maxChapterNumber != null ? maxChapterNumber + 1 : 1;
     }
 
     /**
@@ -291,6 +294,49 @@ public class ChapterServiceImpl implements ChapterService {
             sb.append("章节标题:").append(nullToEmpty(currentOutline.getTitle())).append("\n");
             sb.append("大纲内容:").append(nullToEmpty(currentOutline.getContent())).append("\n");
         }
+
+        // 展开规划（one-to-many模式专用）
+        if (context.getExpansionPlan() != null && !context.getExpansionPlan().isEmpty()) {
+            sb.append("\n# 本章详细规划（重要）\n");
+            Map<String, Object> plan = context.getExpansionPlan();
+
+            if (plan.get("plotSummary") != null) {
+                sb.append("剧情摘要:").append(plan.get("plotSummary")).append("\n");
+            }
+            if (plan.get("keyEvents") instanceof List<?> events && !events.isEmpty()) {
+                sb.append("关键事件:\n");
+                for (Object event : events) {
+                    sb.append("  - ").append(event).append("\n");
+                }
+            }
+            if (plan.get("characterFocus") instanceof List<?> characters && !characters.isEmpty()) {
+                sb.append("聚焦角色:").append(String.join("、", characters.stream()
+                        .map(Object::toString).toList())).append("\n");
+            }
+            if (plan.get("emotionalTone") != null) {
+                sb.append("情绪基调:").append(plan.get("emotionalTone")).append("\n");
+            }
+            if (plan.get("narrativeGoal") != null) {
+                sb.append("叙事目标:").append(plan.get("narrativeGoal")).append("\n");
+            }
+            if (plan.get("conflictType") != null) {
+                sb.append("冲突类型:").append(plan.get("conflictType")).append("\n");
+            }
+            if (plan.get("scenes") instanceof List<?> scenes && !scenes.isEmpty()) {
+                sb.append("场景规划:\n");
+                for (Object scene : scenes) {
+                    if (scene instanceof Map<?, ?> sceneMap) {
+                        sb.append("  - 地点:").append(sceneMap.get("location"));
+                        if (sceneMap.get("purpose") != null) {
+                            sb.append(" | 目的:").append(sceneMap.get("purpose"));
+                        }
+                        sb.append("\n");
+                    }
+                }
+            }
+            sb.append("\n请严格按照以上详细规划创作本章内容，确保覆盖所有关键事件。\n");
+        }
+
         Integer targetWordCount = request.getTargetWordCount() != null ?
                 request.getTargetWordCount() : NovelConstants.ChapterConfig.DEFAULT_WORD_COUNT;
         sb.append("目标字数:约").append(targetWordCount).append("字\n\n");

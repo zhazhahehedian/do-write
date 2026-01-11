@@ -105,4 +105,14 @@ public class ChapterContextVO implements Serializable {
      * 写作风格提示词
      */
     private String writingStylePrompt;
+
+    // ========== 展开规划（one-to-many模式）==========
+
+    /**
+     * 章节展开规划
+     * <p>
+     * 当章节是从大纲展开生成时，会包含详细的展开规划信息。
+     * 包含 plotSummary, keyEvents, characterFocus, emotionalTone 等字段。
+     */
+    private java.util.Map<String, Object> expansionPlan;
 }

@@ -38,11 +38,12 @@ interface ChapterGenerateDialogProps {
 
 const writingStyles = [
   { value: 'default', label: '默认风格' },
-  { value: 'literary', label: '文学风格' },
-  { value: 'web_novel', label: '网文风格' },
-  { value: 'light_novel', label: '轻小说风格' },
-  { value: 'martial_arts', label: '武侠风格' },
-  { value: 'suspense', label: '悬疑风格' },
+  { value: 'natural', label: '自然沉浸' },
+  { value: 'classical', label: '古典雅致' },
+  { value: 'modern', label: '冷硬现代' },
+  { value: 'poetic', label: '意识流' },
+  { value: 'concise', label: '白描速写' },
+  { value: 'vivid', label: '感官特写' },
 ]
 
 export function ChapterGenerateDialog({
@@ -101,6 +102,8 @@ export function ChapterGenerateDialog({
 
   if (!outline) return null
 
+  const showResultDialog = !!content && !error
+
   return (
     <>
       <SSEProgressModal
@@ -111,7 +114,7 @@ export function ChapterGenerateDialog({
         onCancel={abort}
       />
 
-      <Dialog open={open && !isStreaming} onOpenChange={handleClose}>
+      <Dialog open={open && !isStreaming && !content && !error} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -171,54 +174,54 @@ export function ChapterGenerateDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Streaming content display dialog */}
-      <Dialog open={isStreaming && !!content} onOpenChange={() => {}}>
-        <DialogContent className="sm:max-w-[800px] max-h-[80vh]" showCloseButton={false}>
+      {/* 结果展示（生成中/生成完成共用一个弹窗，避免“一下子全出来”） */}
+      <Dialog
+        open={showResultDialog}
+        onOpenChange={(nextOpen) => {
+          if (nextOpen) return
+          if (isStreaming) return
+          handleClose()
+        }}
+      >
+        <DialogContent
+          className="sm:max-w-[800px] max-h-[80vh]"
+          showCloseButton={!isStreaming}
+        >
           <DialogHeader>
-            <DialogTitle>正在生成: {outline.title}</DialogTitle>
+            <DialogTitle>
+              {isStreaming ? `正在生成: ${outline.title}` : '章节生成完成'}
+            </DialogTitle>
+            {!isStreaming && (
+              <DialogDescription>
+                「{outline.title}」已生成完成
+              </DialogDescription>
+            )}
           </DialogHeader>
 
           <div className="flex-1 overflow-hidden">
             <StreamingText
               content={content}
               isStreaming={isStreaming}
+              mode="typewriter"
               className="min-h-[300px] max-h-[50vh]"
             />
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={abort}>
-              停止生成
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Completion dialog */}
-      <Dialog open={!isStreaming && !!content && !error} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[800px] max-h-[80vh]">
-          <DialogHeader>
-            <DialogTitle>章节生成完成</DialogTitle>
-            <DialogDescription>
-              「{outline.title}」已生成完成
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden">
-            <StreamingText
-              content={content}
-              isStreaming={false}
-              className="min-h-[200px] max-h-[50vh]"
-            />
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={handleClose}>
-              关闭
-            </Button>
-            <Button onClick={handleViewChapters}>
-              查看章节列表
-            </Button>
+            {isStreaming ? (
+              <Button variant="outline" onClick={abort}>
+                停止生成
+              </Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={handleClose}>
+                  关闭
+                </Button>
+                <Button onClick={handleViewChapters}>
+                  查看章节列表
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

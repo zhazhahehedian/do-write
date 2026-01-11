@@ -14,6 +14,7 @@ import { toast } from 'sonner'
 
 interface WorldGeneratorProps {
   projectId: string
+  readOnly?: boolean
   initialData?: {
     timePeriod?: string
     location?: string
@@ -25,6 +26,7 @@ interface WorldGeneratorProps {
 
 export function WorldGenerator({
   projectId,
+  readOnly = false,
   initialData,
   onComplete,
 }: WorldGeneratorProps) {
@@ -79,6 +81,7 @@ export function WorldGenerator({
   })
 
   const handleGenerate = async () => {
+    if (readOnly) return
     await startStream(`/api/novel/wizard/world/generate`, {
       projectId,
     })
@@ -105,7 +108,11 @@ export function WorldGenerator({
               AI 将根据您的小说主题和类型，自动生成时代背景、地点环境、
               氛围基调和世界规则。
             </p>
-            <Button onClick={handleGenerate} className="bg-gradient-to-r from-primary to-accent text-white hover:opacity-90">
+            <Button
+              onClick={handleGenerate}
+              disabled={readOnly}
+              className="bg-gradient-to-r from-primary to-accent text-white hover:opacity-90"
+            >
               <Sparkles className="mr-2 h-4 w-4" />
               开始生成
             </Button>
@@ -169,7 +176,7 @@ export function WorldGenerator({
       )}
 
       {/* 操作按钮 */}
-      {worldData.timePeriod && !isStreaming && !isRefreshing && (
+      {worldData.timePeriod && !isStreaming && !isRefreshing && !readOnly && (
         <div className="flex justify-between items-center">
             <div className="flex gap-2">
                  <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>

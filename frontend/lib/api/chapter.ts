@@ -5,6 +5,27 @@ import type { PageResult, PageRequest } from '@/lib/types/api'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
+export type WritingStyleCode =
+  | 'natural'
+  | 'classical'
+  | 'modern'
+  | 'poetic'
+  | 'concise'
+  | 'vivid'
+
+export interface ChapterGeneratePayload {
+  projectId: string | number
+  outlineId: string | number
+  subIndex?: number
+  styleCode?: WritingStyleCode
+  targetWordCount?: number
+  narrativePerspective?: string
+  customRequirements?: string
+  temperature?: number
+  topP?: number
+  enableMemoryRetrieval?: boolean
+}
+
 export const chapterApi = {
   // 获取章节列表
   list: (projectId: string, params?: PageRequest) =>
@@ -22,45 +43,29 @@ export const chapterApi = {
     }),
 
   // 生成章节 (SSE 流式)
-  generate: <T = any>(
-    outlineId: string,
-    params: {
-      writingStyleId?: string
-      subIndex?: number
-    },
-    options: SSEOptions<T>
-  ) => {
+  generate: <T = unknown>(payload: ChapterGeneratePayload, options: SSEOptions<T>) => {
     return ssePost<T>(
       `${API_BASE_URL}/novel/chapter/generate`,
-      { outlineId, ...params },
+      payload,
       options
     )
   },
 
   // 重新生成章节 (SSE 流式)
-  regenerate: <T = any>(
+  regenerate: <T = unknown>(
     chapterId: string,
-    params: any,
-    options?: SSEOptions<T>
+    payload: Partial<ChapterGeneratePayload>,
+    options: SSEOptions<T>
   ) => {
-    // If options is provided as the second argument (legacy support)
-    if (typeof params === 'object' && (params.onProgress || params.onChunk || params.onResult)) {
-        return ssePost<T>(
-            `${API_BASE_URL}/novel/chapter/regenerate/${chapterId}`,
-            {},
-            params as SSEOptions<T>
-        )
-    }
-    
     return ssePost<T>(
       `${API_BASE_URL}/novel/chapter/regenerate/${chapterId}`,
-      params || {},
-      options || {}
+      payload,
+      options
     )
   },
 
   // 润色章节 (SSE 流式)
-  polish: <T = any>(
+  polish: <T = unknown>(
     chapterId: string,
     instruction: string,
     options: SSEOptions<T>
@@ -73,7 +78,7 @@ export const chapterApi = {
   },
 
   // AI去味 (SSE 流式)
-  denoise: <T = any>(
+  denoise: <T = unknown>(
     chapterId: string,
     options: SSEOptions<T>
   ) => {
@@ -107,9 +112,9 @@ export const chapterApi = {
         outline?: string
         histories?: string[]
     }>({
-        method: 'GET',
-        url: '/novel/chapter/context',
-        params: { projectId, outlineId }
+      method: 'GET',
+      url: '/novel/chapter/context',
+      params: { projectId, outlineId }
     }),
 
   // 批量生成
@@ -130,6 +135,6 @@ export const chapterApi = {
       totalChapters: number
     }>({
       method: 'GET',
-      url: `/novel/task/${taskId}`,
+      url: `/novel/chapter/task/${taskId}`,
     }),
 }

@@ -44,6 +44,20 @@ const narrativePerspectives = [
   { value: 'multiple', label: '多视角' },
 ]
 
+// 大纲模式选项
+const outlineModes = [
+  {
+    value: 'one-to-one',
+    label: '传统模式',
+    description: '1个大纲节点 = 1个章节，适合短篇或已有清晰章节划分的故事'
+  },
+  {
+    value: 'one-to-many',
+    label: '细化模式',
+    description: '1个大纲节点 = 多个章节，AI会将每个大纲展开为多个详细章节'
+  },
+]
+
 const projectCreateSchema = z.object({
   title: z.string().min(1, '请输入项目标题').max(50, '标题不能超过50个字符'),
   description: z.string().max(200, '描述不能超过200个字符').optional(),
@@ -51,6 +65,7 @@ const projectCreateSchema = z.object({
   theme: z.string().max(100, '主题不能超过100个字符').optional(),
   narrativePerspective: z.string().optional(),
   targetWords: z.coerce.number().optional(),
+  outlineMode: z.enum(['one-to-one', 'one-to-many']).default('one-to-one'),
 })
 
 type ProjectCreateFormValues = z.infer<typeof projectCreateSchema>
@@ -79,6 +94,7 @@ export function ProjectCreateDialog({
       theme: '',
       narrativePerspective: 'third_person_limited',
       targetWords: 100000,
+      outlineMode: 'one-to-one' as const,
     },
   })
 
@@ -183,6 +199,35 @@ export function ProjectCreateDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="outlineMode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>大纲模式</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择大纲模式" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {outlineModes.map((mode) => (
+                        <SelectItem key={mode.value} value={mode.value}>
+                          <div className="flex flex-col">
+                            <span>{mode.label}</span>
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {outlineModes.find(m => m.value === field.value)?.description}
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}

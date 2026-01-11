@@ -29,6 +29,8 @@ export class SSEPostClient {
     options: SSEOptions<T>
   ): Promise<void> {
     this.abortController = new AbortController()
+    let completed = false
+    let errored = false
 
     // 从 localStorage 获取 token
     const token = typeof window !== 'undefined'
@@ -89,18 +91,43 @@ export class SSEPostClient {
               continue
             }
 
+            // 服务端声明为 error 事件时，禁止落入“正常完成”分支
+            if (currentEvent === 'error') {
+              errored = true
+            }
+
             // 处理 done 事件或 [DONE] 标记
             if (currentEvent === 'done' || jsonStr === '[DONE]') {
+              completed = true
               options.onComplete?.()
               return
             }
 
             try {
               const message: SSEMessage = JSON.parse(jsonStr)
+
+              // 错误事件不应继续走“完成”分支（避免误提示成功）
+              if (message.type === 'error') {
+                errored = true
+                this.handleMessage(message, options)
+                return
+              }
+
+              // 兼容：服务端用 message.type=done 表达完成
+              if (message.type === 'done') {
+                completed = true
+                this.handleMessage(message, options)
+                return
+              }
+
               this.handleMessage(message, options)
             } catch (e) {
               // 如果解析失败，可能是纯文本 chunk（兼容旧格式）
               // 直接作为 chunk 内容处理
+              if (currentEvent === 'error') {
+                options.onError?.(jsonStr)
+                return
+              }
               if (jsonStr.length > 0 && !jsonStr.startsWith('{')) {
                 options.onChunk?.(jsonStr)
               } else {
@@ -114,7 +141,10 @@ export class SSEPostClient {
         }
       }
 
-      options.onComplete?.()
+      // 只有在未完成、未报错的情况下，才把“正常断流”视作完成（兼容旧后端无 done 事件）
+      if (!completed && !errored) {
+        options.onComplete?.()
+      }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log('SSE request aborted')

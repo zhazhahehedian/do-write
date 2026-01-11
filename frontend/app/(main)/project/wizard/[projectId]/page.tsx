@@ -36,6 +36,32 @@ const steps: WizardStep[] = [
   },
 ]
 
+function extractWorldUpdate(data: unknown) {
+  if (!data || typeof data !== 'object') return null
+  const world = data as Record<string, unknown>
+
+  const worldTimePeriod = typeof world.timePeriod === 'string' ? world.timePeriod : undefined
+  const worldLocation = typeof world.location === 'string' ? world.location : undefined
+  const worldAtmosphere = typeof world.atmosphere === 'string' ? world.atmosphere : undefined
+  const worldRules = typeof world.rules === 'string' ? world.rules : undefined
+
+  if (
+    worldTimePeriod === undefined &&
+    worldLocation === undefined &&
+    worldAtmosphere === undefined &&
+    worldRules === undefined
+  ) {
+    return null
+  }
+
+  return {
+    worldTimePeriod,
+    worldLocation,
+    worldAtmosphere,
+    worldRules,
+  }
+}
+
 export default function WizardPage() {
   const params = useParams()
   const router = useRouter()
@@ -74,7 +100,7 @@ export default function WizardPage() {
   useEffect(() => {
     if (progress) {
       // 如果向导已完成，跳转到章节页面
-      if (progress.status === 'COMPLETED' || progress.currentStep >= 3) {
+      if (progress.status === 'completed' || progress.currentStep >= 3) {
         router.push(`/project/${projectId}/chapters`)
         return
       }
@@ -83,18 +109,44 @@ export default function WizardPage() {
     }
   }, [progress, projectId, router])
 
+  const maxStepIndex = progress
+    ? Math.min(progress.currentStep, steps.length - 1)
+    : 0
+
   // 根据 URL 参数同步步骤
   useEffect(() => {
     if (stepParam) {
       const index = steps.findIndex(s => s.id === stepParam)
-      if (index !== -1) setCurrentStepIndex(index)
+      if (index === -1) return
+
+      // 防止通过 URL 跳到尚未解锁的步骤（允许回退查看）
+      if (index <= maxStepIndex) {
+        setCurrentStepIndex(index)
+      }
     }
-  }, [stepParam])
+  }, [maxStepIndex, stepParam])
+
+  const isReviewing = progress
+    ? currentStepIndex < maxStepIndex
+    : false
 
   const handleStepComplete = async (_stepId: string, _data: unknown) => {
     try {
+      // 世界观步骤支持“编辑后确认”，需要把用户编辑内容落库
+      if (_stepId === 'world') {
+        const worldUpdate = extractWorldUpdate(_data)
+        if (worldUpdate) {
+          await projectApi.update(projectId, worldUpdate)
+        }
+      }
+
+      const wizardStep = currentStepIndex + 1
+      const wizardStatus = currentStepIndex >= steps.length - 1
+        ? 'completed'
+        : 'in_progress'
+
       // 更新向导状态
-      await wizardApi.updateStatus(projectId, 'IN_PROGRESS', currentStepIndex + 1)
+      await wizardApi.updateStatus(projectId, wizardStatus, wizardStep)
 
       // 进入下一步
       if (currentStepIndex < steps.length - 1) {
@@ -114,7 +166,7 @@ export default function WizardPage() {
   // 计算步骤显示状态
   const displaySteps = steps.map((step, index) => ({
     ...step,
-    status: index < currentStepIndex ? 'completed' : index === currentStepIndex ? 'current' : 'pending',
+    status: index < maxStepIndex ? 'completed' : index === maxStepIndex ? 'current' : 'pending',
   })) as WizardStep[]
 
   if (configLoading || projectLoading) {
@@ -145,35 +197,64 @@ export default function WizardPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
         {/* 左侧步骤条 */}
         <div className="md:col-span-1">
-          <WizardSteps steps={displaySteps} currentStep={currentStepIndex} />
+          <WizardSteps
+            steps={displaySteps}
+            currentStep={currentStepIndex}
+            maxStepIndex={maxStepIndex}
+            onStepClick={(_stepId, stepIndex) => {
+              setCurrentStepIndex(stepIndex)
+              router.push(`/project/wizard/${projectId}?step=${steps[stepIndex].id}`)
+            }}
+          />
         </div>
 
         {/* 右侧内容区 */}
         <div className="md:col-span-3">
+          {isReviewing && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm flex items-center justify-between gap-3">
+              <div className="text-muted-foreground">
+                正在回看已完成步骤，当前进度仍在「{steps[maxStepIndex]?.title}」
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCurrentStepIndex(maxStepIndex)
+                  router.push(`/project/wizard/${projectId}?step=${steps[maxStepIndex].id}`)
+                }}
+              >
+                返回当前步骤
+              </Button>
+            </div>
+          )}
+
           {steps[currentStepIndex].id === 'world' && (
             <WorldGenerator
               projectId={projectId}
+              readOnly={isReviewing}
               initialData={project ? {
                 timePeriod: project.worldTimePeriod,
                 location: project.worldLocation,
                 atmosphere: project.worldAtmosphere,
                 rules: project.worldRules,
               } : undefined}
-              onComplete={(data) => handleStepComplete('world', data)}
+              onComplete={isReviewing ? undefined : (data) => handleStepComplete('world', data)}
             />
           )}
 
           {steps[currentStepIndex].id === 'characters' && (
             <CharacterGenerator
               projectId={projectId}
-              onComplete={(data) => handleStepComplete('characters', data)}
+              readOnly={isReviewing}
+              onComplete={isReviewing ? undefined : (data) => handleStepComplete('characters', data)}
             />
           )}
 
           {steps[currentStepIndex].id === 'outlines' && (
             <OutlineGenerator
               projectId={projectId}
-              onComplete={(data) => handleStepComplete('outlines', data)}
+              readOnly={isReviewing}
+              onComplete={isReviewing ? undefined : (data) => handleStepComplete('outlines', data)}
             />
           )}
         </div>

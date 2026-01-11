@@ -18,11 +18,13 @@ import type { GenerationTask } from '@/lib/types/wizard'
 
 interface OutlineGeneratorProps {
   projectId: string
+  readOnly?: boolean
   onComplete?: (outlines: Outline[]) => void
 }
 
 export function OutlineGenerator({
   projectId,
+  readOnly = false,
   onComplete,
 }: OutlineGeneratorProps) {
   const [outlineCount, setOutlineCount] = useState(10)
@@ -101,6 +103,7 @@ export function OutlineGenerator({
   })
 
   const handleGenerate = () => {
+    if (readOnly) return
     submitMutation.mutate()
   }
 
@@ -117,6 +120,12 @@ export function OutlineGenerator({
 
   return (
     <div className="space-y-6">
+      {readOnly && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-muted-foreground">
+          该步骤已完成，当前为回看模式。
+        </div>
+      )}
+
       {/* 生成进度 */}
       {isGenerating && (
         <Card>
@@ -178,7 +187,7 @@ export function OutlineGenerator({
                 />
               </div>
 
-              <Button onClick={handleGenerate} disabled={isPending} className="w-full">
+              <Button onClick={handleGenerate} disabled={isPending || readOnly} className="w-full">
                 {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -222,7 +231,7 @@ export function OutlineGenerator({
 
           {/* 操作按钮 */}
           <div className="flex justify-between">
-            <Button variant="outline" onClick={handleGenerate} disabled={isPending}>
+            <Button variant="outline" onClick={handleGenerate} disabled={isPending || readOnly}>
               {isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -230,10 +239,12 @@ export function OutlineGenerator({
               )}
               重新生成
             </Button>
-            <Button onClick={() => onComplete?.(outlineList)}>
-              <Check className="mr-2 h-4 w-4" />
-              完成向导
-            </Button>
+            {!readOnly && (
+              <Button onClick={() => onComplete?.(outlineList)}>
+                <Check className="mr-2 h-4 w-4" />
+                完成向导
+              </Button>
+            )}
           </div>
         </>
       )}

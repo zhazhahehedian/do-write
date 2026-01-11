@@ -1,8 +1,9 @@
 'use client'
 
 import type { Outline } from '@/lib/types/outline'
+import type { OutlineMode } from '@/lib/types/project'
 import { Button } from '@/components/ui/button'
-import { Plus, List, Loader2, MoreVertical, Pencil, Trash2, FileText } from 'lucide-react'
+import { Plus, List, Loader2, MoreVertical, Pencil, Trash2, FileText, Layers } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import {
   DropdownMenu,
@@ -16,20 +17,26 @@ import { Badge } from '@/components/ui/badge'
 interface OutlineListProps {
   outlines: Outline[]
   isLoading?: boolean
+  outlineMode?: OutlineMode
   onAdd?: () => void
   onEdit?: (outline: Outline) => void
   onDelete?: (id: string) => void
   onGenerateChapter?: (outline: Outline) => void
+  onExpandOutline?: (outline: Outline) => void
 }
 
 export function OutlineList({
   outlines,
   isLoading,
+  outlineMode = 'one-to-one',
   onAdd,
   onEdit,
   onDelete,
   onGenerateChapter,
+  onExpandOutline,
 }: OutlineListProps) {
+  const isOneToMany = outlineMode === 'one-to-many'
+
   if (isLoading) {
     return (
       <div className="flex h-[400px] items-center justify-center">
@@ -63,7 +70,17 @@ export function OutlineList({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Badge variant={isOneToMany ? 'default' : 'secondary'}>
+            {isOneToMany ? '细化模式 (1:N)' : '传统模式 (1:1)'}
+          </Badge>
+          {isOneToMany && (
+            <span className="text-xs text-muted-foreground">
+              每个大纲可展开为多个章节
+            </span>
+          )}
+        </div>
         <Button onClick={onAdd}>
           <Plus className="mr-2 h-4 w-4" />
           创建大纲
@@ -101,10 +118,17 @@ export function OutlineList({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => onGenerateChapter?.(outline)}>
-                      <FileText className="mr-2 h-4 w-4" />
-                      生成章节
-                    </DropdownMenuItem>
+                    {isOneToMany ? (
+                      <DropdownMenuItem onClick={() => onExpandOutline?.(outline)}>
+                        <Layers className="mr-2 h-4 w-4" />
+                        展开为多章
+                      </DropdownMenuItem>
+                    ) : (
+                      <DropdownMenuItem onClick={() => onGenerateChapter?.(outline)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        生成章节
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={() => onEdit?.(outline)}>
                       <Pencil className="mr-2 h-4 w-4" />
