@@ -4,6 +4,7 @@ import com.dpbug.server.model.dto.novel.CharacterGenerateRequest;
 import com.dpbug.server.model.dto.novel.OutlineGenerateRequest;
 import com.dpbug.server.model.dto.novel.WorldGenerateRequest;
 import com.dpbug.server.model.vo.novel.CharacterVO;
+import com.dpbug.server.model.vo.novel.GenerationTaskVO;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -89,6 +90,32 @@ public interface WizardService {
      * @return 向导进度信息
      */
     WizardProgressVO getWizardProgress(Long userId, Long projectId);
+
+    /**
+     * 提交异步角色生成任务
+     * <p>
+     * 创建后台任务执行角色生成，立即返回任务信息，
+     * 前端通过轮询任务状态获取结果。
+     * </p>
+     *
+     * @param userId  用户ID
+     * @param request 角色生成请求
+     * @return 任务信息
+     */
+    GenerationTaskVO submitCharacterGenerationTask(Long userId, CharacterGenerateRequest request);
+
+    /**
+     * 提交异步大纲生成任务
+     * <p>
+     * 创建后台任务执行大纲生成，立即返回任务信息，
+     * 前端通过轮询任务状态获取结果。
+     * </p>
+     *
+     * @param userId  用户ID
+     * @param request 大纲生成请求
+     * @return 任务信息
+     */
+    GenerationTaskVO submitOutlineGenerationTask(Long userId, OutlineGenerateRequest request);
 
     /**
      * 向导进度信息

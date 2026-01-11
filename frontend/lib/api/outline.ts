@@ -1,13 +1,12 @@
 import { request } from './client'
 import type { Outline } from '@/lib/types/outline'
-import type { PageResult, PageRequest } from '@/lib/types/api'
 
 export const outlineApi = {
-  list: (projectId: string, params?: PageRequest) =>
-    request<PageResult<Outline>>({
+  list: (projectId: string) =>
+    request<Outline[]>({
       method: 'GET',
       url: '/novel/outline/list',
-      params: { projectId, ...params },
+      params: { projectId },
     }),
 
   getById: (id: string) =>

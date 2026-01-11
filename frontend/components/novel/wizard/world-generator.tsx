@@ -1,13 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { SSEProgressModal } from '@/components/streaming/sse-progress-modal'
 import { StreamingText } from '@/components/streaming/streaming-text'
 import { useSSEStream } from '@/hooks/use-sse-stream'
-import { Sparkles, RefreshCw, Check } from 'lucide-react'
+import { projectApi } from '@/lib/api/project'
+import { Sparkles, RefreshCw, Check, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface WorldGeneratorProps {
   projectId: string
@@ -25,8 +28,17 @@ export function WorldGenerator({
   initialData,
   onComplete,
 }: WorldGeneratorProps) {
+  const queryClient = useQueryClient()
   const [worldData, setWorldData] = useState(initialData || {})
   const [isEditing, setIsEditing] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  // Sync with initialData when it changes (e.g., after page refresh)
+  useEffect(() => {
+    if (initialData && Object.values(initialData).some(v => v)) {
+      setWorldData(initialData)
+    }
+  }, [initialData])
 
   const {
     isStreaming,
@@ -36,12 +48,33 @@ export function WorldGenerator({
     error,
     startStream,
     abort,
+    reset,
   } = useSSEStream({
-    onComplete: () => {
-      // 解析生成的内容并保存
-      // TODO: 调用保存API，这里暂时假设生成的内容就是worldData的一部分，实际可能需要解析JSON
-      // 由于SSE流式返回通常是markdown文本，后端可能会在done时返回结构化数据，或者我们需要解析content
-      // 这里简化处理，假设用户会手动调整
+    onComplete: async () => {
+      // Backend automatically parses and saves world data after SSE completes
+      // We just need to fetch the updated project to get the structured fields
+      setIsRefreshing(true)
+      try {
+        const updatedProject = await projectApi.getById(projectId)
+        if (updatedProject) {
+          const newWorldData = {
+            timePeriod: updatedProject.worldTimePeriod || '',
+            location: updatedProject.worldLocation || '',
+            atmosphere: updatedProject.worldAtmosphere || '',
+            rules: updatedProject.worldRules || '',
+          }
+          setWorldData(newWorldData)
+          // Invalidate project query cache
+          queryClient.invalidateQueries({ queryKey: ['project', projectId] })
+          toast.success('世界观生成完成')
+        }
+      } catch (e) {
+        console.error('Failed to fetch updated project:', e)
+        toast.error('获取生成结果失败，请刷新页面')
+      } finally {
+        setIsRefreshing(false)
+        reset() // Clear streaming content since we now have structured data
+      }
     },
   })
 
@@ -81,10 +114,19 @@ export function WorldGenerator({
       )}
 
       {/* 流式内容显示 */}
-      {isStreaming && (
+      {(isStreaming || isRefreshing) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">生成中...</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">
+              {isRefreshing ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  正在解析数据...
+                </>
+              ) : (
+                '生成中...'
+              )}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <StreamingText
@@ -97,7 +139,7 @@ export function WorldGenerator({
       )}
 
       {/* 世界观展示/编辑 */}
-      {(worldData.timePeriod || content) && !isStreaming && (
+      {worldData.timePeriod && !isStreaming && !isRefreshing && (
         <div className="grid gap-4 md:grid-cols-2">
           <WorldSection
             title="时代背景"
@@ -127,7 +169,7 @@ export function WorldGenerator({
       )}
 
       {/* 操作按钮 */}
-      {(worldData.timePeriod || content) && !isStreaming && (
+      {worldData.timePeriod && !isStreaming && !isRefreshing && (
         <div className="flex justify-between items-center">
             <div className="flex gap-2">
                  <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>

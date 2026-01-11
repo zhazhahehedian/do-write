@@ -42,8 +42,8 @@ export function HomeStatistics() {
   })
 
   const projects = React.useMemo(() => {
-    return (data?.list ?? []) as ProjectListVO[]
-  }, [data?.list])
+    return (data?.list ?? []) as unknown as ProjectListVO[]
+  }, [data])
 
   const defaultProjectId = React.useMemo(() => {
     if (typeof window === "undefined") return null
@@ -242,7 +242,7 @@ export function HomeStatistics() {
           </Link>
         </Button>
         <Button asChild variant="secondary" disabled={!quickProjectId || isDetailLoading}>
-          <Link href={quickProjectId ? `/project/${quickProjectId}/wizard` : "/projects"}>
+          <Link href={quickProjectId ? `/project/wizard/${quickProjectId}` : "/projects"}>
             <Sparkles className="mr-2 h-4 w-4" />
             创作向导
           </Link>

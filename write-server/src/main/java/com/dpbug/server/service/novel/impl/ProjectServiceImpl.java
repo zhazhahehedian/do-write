@@ -141,7 +141,7 @@ public class ProjectServiceImpl implements ProjectService {
         chapterWrapper.eq(NovelChapter::getProjectId, projectId);
         chapterMapper.delete(chapterWrapper);
 
-        // 级联删除故事记忆
+        // 级联删除故事记忆-不需要逻辑删除
         LambdaUpdateWrapper<NovelStoryMemory> memoryWrapper = new LambdaUpdateWrapper<>();
         memoryWrapper.eq(NovelStoryMemory::getProjectId, projectId);
         storyMemoryMapper.delete(memoryWrapper);
@@ -245,6 +245,15 @@ public class ProjectServiceImpl implements ProjectService {
         }
 
         return project;
+    }
+
+    @Override
+    public void updateProjectStatus(Long projectId, String status) {
+        NovelProject update = new NovelProject();
+        update.setId(projectId);
+        update.setStatus(status);
+        projectMapper.updateById(update);
+        log.info("更新项目状态: projectId={}, status={}", projectId, status);
     }
 
     /**

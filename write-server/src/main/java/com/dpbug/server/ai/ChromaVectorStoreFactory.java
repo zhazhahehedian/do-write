@@ -93,16 +93,58 @@ public class ChromaVectorStoreFactory {
             log.info("创建项目 VectorStore: userId={}, projectId={}, collection={}",
                     userId, projectId, name);
 
-            VectorStore vectorStore = ChromaVectorStore.builder(chromaApi, embeddingModel)
+            // 先确保 Collection 存在（手动创建，解决 ChromaDB 1.0.0 兼容性问题）
+            ensureCollectionExists(name);
+
+            ChromaVectorStore vectorStore = ChromaVectorStore.builder(chromaApi, embeddingModel)
                     .collectionName(name)
                     .tenantName(tenantName)
                     .databaseName(databaseName)
-                    .initializeSchema(true)
+                    .initializeSchema(false)  // 已手动创建，无需再初始化
                     .build();
+
+            // 强制初始化：获取 Collection ID
+            try {
+                vectorStore.afterPropertiesSet();
+            } catch (Exception e) {
+                log.warn("VectorStore 初始化警告: {}", e.getMessage());
+            }
 
             log.info("✅ VectorStore 创建成功: {}", name);
             return vectorStore;
         });
+    }
+
+    /**
+     * 确保 Collection 存在，如果不存在则创建
+     *
+     * @param collectionName Collection 名称
+     */
+    private void ensureCollectionExists(String collectionName) {
+        try {
+            // 尝试获取 Collection，如果不存在会抛出异常
+            chromaApi.getCollection(tenantName, databaseName, collectionName);
+            log.debug("Collection 已存在: {}", collectionName);
+        } catch (Exception e) {
+            // Collection 不存在，创建它
+            log.info("Collection 不存在，正在创建: {}", collectionName);
+            try {
+                chromaApi.createCollection(
+                        tenantName,
+                        databaseName,
+                        new ChromaApi.CreateCollectionRequest(collectionName)
+                );
+                log.info("Collection 创建成功: {}", collectionName);
+            } catch (Exception createEx) {
+                // 可能是并发创建导致的冲突，忽略
+                if (createEx.getMessage() != null && createEx.getMessage().contains("already exists")) {
+                    log.debug("Collection 已被并发创建: {}", collectionName);
+                } else {
+                    log.error("创建 Collection 失败: {}", collectionName, createEx);
+                    throw new RuntimeException("Failed to create collection: " + collectionName, createEx);
+                }
+            }
+        }
     }
 
     /**
@@ -138,7 +180,7 @@ public class ChromaVectorStoreFactory {
             // ChromaApi.deleteCollection 需要 tenantName, databaseName, collectionName
             chromaApi.deleteCollection(tenantName, databaseName, collectionName);
             vectorStoreCache.remove(collectionName);
-            log.info("✅ Collection 已删除: {}", collectionName);
+            log.info("Collection 已删除: {}", collectionName);
             return true;
         } catch (Exception e) {
             // Collection 不存在时忽略
@@ -147,7 +189,7 @@ public class ChromaVectorStoreFactory {
                 vectorStoreCache.remove(collectionName);
                 return true;
             }
-            log.error("❌ 删除 Collection 失败: {}", collectionName, e);
+            log.error("删除 Collection 失败: {}", collectionName, e);
             return false;
         }
     }

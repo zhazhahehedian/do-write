@@ -1,5 +1,5 @@
 // API类型
-export type ApiType = 'OPENAI' | 'AZURE_OPENAI' | 'CUSTOM'
+export type ApiType = 'OPENAI' | 'AZURE_OPENAI' | 'OLLAMA' | 'CUSTOM'
 
 // 用户API配置 - 对应 UserApiConfigVO
 export interface UserApiConfig {
@@ -21,6 +21,7 @@ export interface UserApiConfig {
 
 // 用户API配置创建请求 - 对应 UserApiConfigRequest
 export interface UserApiConfigCreateRequest {
+  userId: string  // 使用 string 避免大整数精度丢失
   configName: string
   apiType: ApiType
   apiKey: string      // 明文，保存时会自动加密
@@ -34,7 +35,8 @@ export interface UserApiConfigCreateRequest {
 
 // 用户API配置更新请求
 export interface UserApiConfigUpdateRequest {
-  id: number
+  userId: string  // 使用 string 避免大整数精度丢失
+  id: string      // 使用 string 避免大整数精度丢失
   configName?: string
   apiType?: ApiType
   apiKey?: string      // 可选，不传则保持原值

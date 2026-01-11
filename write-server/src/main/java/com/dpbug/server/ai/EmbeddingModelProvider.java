@@ -1,5 +1,8 @@
 package com.dpbug.server.ai;
 
+import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
+import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingModel;
+import com.alibaba.cloud.ai.dashscope.embedding.DashScopeEmbeddingOptions;
 import com.dpbug.server.model.entity.user.UserApiConfig;
 import com.dpbug.server.service.user.UserApiConfigService;
 import jakarta.annotation.PostConstruct;
@@ -18,17 +21,14 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * EmbeddingModel 提供者配置
- *
- * <p>功能：</p>
+ * <p>
+ * 支持的类型：
  * <ul>
- *   <li>从系统配置（user_id=0）读取 Embedding 模型配置</li>
- *   <li>创建全局唯一的 EmbeddingModel Bean</li>
- *   <li>用于 VectorStore 进行向量化存储和检索</li>
+ *   <li>OPENAI - OpenAI 官方 API</li>
+ *   <li>OLLAMA - 本地 Ollama 服务</li>
+ *   <li>DASHSCOPE - 阿里云百炼 (text-embedding-v4 等)</li>
+ *   <li>CUSTOM - OpenAI 兼容的第三方 API (如 Azure OpenAI, one-api 等)</li>
  * </ul>
- *
- * <p>说明：</p>
- * Embedding 模型需要系统级稳定配置，不像 ChatClient 那样频繁切换，
- * 因此使用 user_id=0 的系统配置，确保所有用户使用统一的向量空间。
  *
  * @author dpbug
  * @since 2025-12-27
@@ -43,85 +43,132 @@ public class EmbeddingModelProvider {
     @PostConstruct
     public void init() {
         try {
-            // 检查系统配置是否存在
             UserApiConfig systemConfig = userApiConfigService.getSystemConfig();
-            log.info("✅ 系统Embedding模型配置已加载: apiType={}, embeddingModel={}",
+            log.info("系统Embedding模型配置已加载: apiType={}, model={}",
                     systemConfig.getApiType(), systemConfig.getEmbeddingModel());
         } catch (Exception e) {
-            log.warn("⚠️  系统Embedding模型配置未找到，请在数据库中创建 user_id=0 的配置记录");
+            log.warn("系统Embedding模型配置未找到，请在数据库中创建 user_id=0 的配置记录");
         }
     }
 
-    /**
-     * 创建全局 EmbeddingModel Bean
-     *
-     * @return EmbeddingModel 实例
-     */
     @Bean
     public EmbeddingModel embeddingModel() {
         UserApiConfig config = userApiConfigService.getSystemConfig();
+        String apiType = config.getApiType().toUpperCase();
 
-        log.info("初始化 EmbeddingModel: apiType={}, model={}",
-                config.getApiType(), config.getEmbeddingModel());
+        log.info("初始化 EmbeddingModel: apiType={}, model={}", apiType, config.getEmbeddingModel());
 
-        return switch (config.getApiType().toUpperCase()) {
+        return switch (apiType) {
             case "OPENAI" -> createOpenAiEmbeddingModel(config);
             case "OLLAMA" -> createOllamaEmbeddingModel(config);
-            default -> throw new IllegalArgumentException("不支持的Embedding模型类型: " + config.getApiType());
+            case "DASHSCOPE" -> createDashScopeEmbeddingModel(config);
+            case "CUSTOM" -> createCustomEmbeddingModel(config);
+            default -> throw new IllegalArgumentException("不支持的Embedding模型类型: " + apiType);
         };
     }
 
     /**
      * 创建 OpenAI EmbeddingModel
-     *
-     * @param config 系统配置
-     * @return OpenAiEmbeddingModel
      */
     private EmbeddingModel createOpenAiEmbeddingModel(UserApiConfig config) {
-        // 构建 OpenAI API
         OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
                 .apiKey(config.getApiKey());
 
-        if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
-            apiBuilder.baseUrl(config.getBaseUrl());
+        if (hasValue(config.getBaseUrl())) {
+            apiBuilder.baseUrl(trimTrailingSlash(config.getBaseUrl()));
         }
 
-        OpenAiApi openAiApi = apiBuilder.build();
-
-        // 构建 Embedding Options
         OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
-                .model(config.getEmbeddingModel() != null ? config.getEmbeddingModel() : "text-embedding-3-large")
+                .model(getOrDefault(config.getEmbeddingModel(), "text-embedding-3-large"))
                 .build();
 
-        // OpenAiEmbeddingModel 需要3个参数：API、MetadataMode、Options
-        return new OpenAiEmbeddingModel(openAiApi, MetadataMode.EMBED, options);
+        return new OpenAiEmbeddingModel(apiBuilder.build(), MetadataMode.EMBED, options);
     }
 
     /**
      * 创建 Ollama EmbeddingModel
-     *
-     * @param config 系统配置
-     * @return OllamaEmbeddingModel
      */
     private EmbeddingModel createOllamaEmbeddingModel(UserApiConfig config) {
-        String baseUrl = config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()
-                ? config.getBaseUrl()
-                : "http://localhost:11434";
+        String baseUrl = getOrDefault(config.getBaseUrl(), "http://localhost:11434");
 
-        // 构建 Ollama API（使用 Builder 模式）
         OllamaApi ollamaApi = OllamaApi.builder()
                 .baseUrl(baseUrl)
                 .build();
 
-        // Ollama Embedding Options
         OllamaEmbeddingOptions options = OllamaEmbeddingOptions.builder()
-                .model(config.getEmbeddingModel() != null ? config.getEmbeddingModel() : "nomic-embed-text")
+                .model(getOrDefault(config.getEmbeddingModel(), "nomic-embed-text"))
                 .build();
 
-        // OllamaEmbeddingModel 需要4个参数，使用 Builder 模式
         return OllamaEmbeddingModel.builder()
                 .ollamaApi(ollamaApi)
                 .defaultOptions(options)
                 .build();
+    }
+
+    /**
+     * 创建阿里云百炼 DashScope EmbeddingModel
+     * 支持 text-embedding-v4, text-embedding-v2 等模型
+     *
+     * 注意：DashScopeApi 使用 spring.ai.dashscope.api-key 配置，
+     * 不支持通过 builder().apiKey() 动态传入（库的限制）
+     */
+    private EmbeddingModel createDashScopeEmbeddingModel(UserApiConfig config) {
+        // 注意：DashScopeApi 的 API Key 从 spring.ai.dashscope.api-key 配置读取
+        // builder().apiKey() 传入的值会被忽略，这是 spring-ai-alibaba 库的行为
+        // 因此需要在 yml 中配置正确的 API Key
+
+        DashScopeApi dashScopeApi = DashScopeApi.builder()
+                .apiKey(config.getApiKey())  // 仍然传入，但实际使用配置文件的值
+                .build();
+
+        String model = getOrDefault(config.getEmbeddingModel(), "text-embedding-v4");
+        log.info("创建 DashScope EmbeddingModel: model={}", model);
+
+        DashScopeEmbeddingOptions options = DashScopeEmbeddingOptions.builder()
+                .withModel(model)
+                .build();
+
+        return new DashScopeEmbeddingModel(dashScopeApi, MetadataMode.EMBED, options);
+    }
+
+    /**
+     * 创建 CUSTOM 类型 EmbeddingModel
+     * 适用于 OpenAI 兼容的第三方 API (Azure OpenAI, one-api 等)
+     * 注意：不适用于阿里云百炼、DeepSeek 等非 OpenAI 兼容的服务
+     */
+    private EmbeddingModel createCustomEmbeddingModel(UserApiConfig config) {
+        if (!hasValue(config.getEmbeddingModel())) {
+            log.warn("CUSTOM 类型未配置 embeddingModel，Embedding 功能将不可用");
+            return new StubEmbeddingModel();
+        }
+
+        OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
+                .apiKey(config.getApiKey());
+
+        if (hasValue(config.getBaseUrl())) {
+            apiBuilder.baseUrl(trimTrailingSlash(config.getBaseUrl()));
+        }
+
+        OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
+                .model(config.getEmbeddingModel())
+                .build();
+
+        return new OpenAiEmbeddingModel(apiBuilder.build(), MetadataMode.EMBED, options);
+    }
+
+    private String trimTrailingSlash(String url) {
+        String trimmed = url.trim();
+        while (trimmed.endsWith("/")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 1);
+        }
+        return trimmed;
+    }
+
+    private boolean hasValue(String str) {
+        return str != null && !str.trim().isEmpty();
+    }
+
+    private String getOrDefault(String value, String defaultValue) {
+        return hasValue(value) ? value : defaultValue;
     }
 }

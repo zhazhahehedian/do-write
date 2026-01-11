@@ -35,6 +35,13 @@ public class ChatClientFactory {
     private final UserApiConfigService userApiConfigService;
 
     /**
+     * 角色生成等复杂任务的最小 maxTokens
+     * 7个角色的JSON大约需要8000+ tokens
+     * 设大一点先
+     */
+    private static final int MIN_TOKENS_FOR_COMPLEX_TASKS = 32000;
+
+    /**
      * 为指定用户创建 ChatClient（使用默认配置）
      *
      * @param userId 用户ID
@@ -42,7 +49,30 @@ public class ChatClientFactory {
      */
     public ChatClient createForUser(Long userId) {
         UserApiConfig config = userApiConfigService.getDefaultConfig(userId);
-        return createChatClient(config);
+        return createChatClient(config, null);
+    }
+
+    /**
+     * 为指定用户创建 ChatClient（使用更高的 maxTokens）
+     * 适用于角色生成、大纲生成等需要长输出的任务
+     *
+     * @param userId    用户ID
+     * @param minTokens 最小 token 数量
+     * @return ChatClient 实例
+     */
+    public ChatClient createForUserWithMinTokens(Long userId, int minTokens) {
+        UserApiConfig config = userApiConfigService.getDefaultConfig(userId);
+        return createChatClient(config, minTokens);
+    }
+
+    /**
+     * 为复杂任务创建 ChatClient（自动使用较高的 maxTokens）
+     *
+     * @param userId 用户ID
+     * @return ChatClient 实例
+     */
+    public ChatClient createForComplexTask(Long userId) {
+        return createForUserWithMinTokens(userId, MIN_TOKENS_FOR_COMPLEX_TASKS);
     }
 
     /**
@@ -65,32 +95,48 @@ public class ChatClientFactory {
      */
     public ChatClient createForUser(Long userId, Long configId) {
         UserApiConfig config = userApiConfigService.getConfigById(userId, configId);
-        return createChatClient(config);
+        return createChatClient(config, null);
     }
 
     /**
      * 根据配置创建 ChatClient（核心方法）
      *
-     * @param config API配置
+     * @param config    API配置
+     * @param minTokens 最小 token 数量（可选）
      * @return ChatClient 实例
      */
-    private ChatClient createChatClient(UserApiConfig config) {
-        log.debug("创建 ChatClient: apiType={}, modelName={}", config.getApiType(), config.getModelName());
+    private ChatClient createChatClient(UserApiConfig config, Integer minTokens) {
+        log.debug("创建 ChatClient: apiType={}, modelName={}, minTokens={}",
+                config.getApiType(), config.getModelName(), minTokens);
 
         return switch (config.getApiType().toUpperCase()) {
-            case "OPENAI" -> createOpenAiChatClient(config);
-            case "OLLAMA" -> createOllamaChatClient(config);
+            case "OPENAI", "AZURE_OPENAI", "CUSTOM" -> createOpenAiChatClient(config, minTokens);
+            case "OLLAMA" -> createOllamaChatClient(config, minTokens);
             default -> throw new IllegalArgumentException("不支持的API类型: " + config.getApiType());
         };
     }
 
     /**
+     * 计算实际使用的 maxTokens
+     */
+    private Integer calculateMaxTokens(Integer configMaxTokens, Integer minTokens) {
+        if (minTokens == null) {
+            return configMaxTokens;
+        }
+        if (configMaxTokens == null) {
+            return minTokens;
+        }
+        return Math.max(configMaxTokens, minTokens);
+    }
+
+    /**
      * 创建 OpenAI ChatClient
      *
-     * @param config 用户配置
+     * @param config    用户配置
+     * @param minTokens 最小 token 数量
      * @return ChatClient
      */
-    private ChatClient createOpenAiChatClient(UserApiConfig config) {
+    private ChatClient createOpenAiChatClient(UserApiConfig config, Integer minTokens) {
         // 构建 OpenAI API
         OpenAiApi.Builder apiBuilder = OpenAiApi.builder()
                 .apiKey(config.getApiKey());
@@ -109,8 +155,11 @@ public class ChatClientFactory {
         if (config.getTemperature() != null) {
             optionsBuilder.temperature(config.getTemperature().doubleValue());
         }
-        if (config.getMaxTokens() != null) {
-            optionsBuilder.maxTokens(config.getMaxTokens());
+
+        // 计算实际使用的 maxTokens
+        Integer actualMaxTokens = calculateMaxTokens(config.getMaxTokens(), minTokens);
+        if (actualMaxTokens != null) {
+            optionsBuilder.maxTokens(actualMaxTokens);
         }
 
         // 创建 ChatModel（使用 Builder 模式）
@@ -126,10 +175,11 @@ public class ChatClientFactory {
     /**
      * 创建 Ollama ChatClient
      *
-     * @param config 用户配置
+     * @param config    用户配置
+     * @param minTokens 最小 token 数量
      * @return ChatClient
      */
-    private ChatClient createOllamaChatClient(UserApiConfig config) {
+    private ChatClient createOllamaChatClient(UserApiConfig config, Integer minTokens) {
         // Ollama 默认 baseUrl 为 http://localhost:11434
         String baseUrl = config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()
                 ? config.getBaseUrl()
@@ -147,9 +197,11 @@ public class ChatClientFactory {
         if (config.getTemperature() != null) {
             optionsBuilder.temperature(config.getTemperature().doubleValue());
         }
+
         // Ollama 使用 numPredict 而不是 maxTokens
-        if (config.getMaxTokens() != null) {
-            optionsBuilder.numPredict(config.getMaxTokens());
+        Integer actualMaxTokens = calculateMaxTokens(config.getMaxTokens(), minTokens);
+        if (actualMaxTokens != null) {
+            optionsBuilder.numPredict(actualMaxTokens);
         }
 
         // 创建 ChatModel（使用 Builder 模式）

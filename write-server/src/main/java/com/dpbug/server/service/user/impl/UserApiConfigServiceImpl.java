@@ -63,9 +63,15 @@ public class UserApiConfigServiceImpl extends ServiceImpl<UserApiConfigMapper, U
         // 加密API Key
         config.setApiKey(AesUtil.encrypt(dto.getApiKey()));
 
+        // 检查用户是否已有配置，如果没有则自动设为默认
+        LambdaQueryWrapper<UserApiConfig> countWrapper = new LambdaQueryWrapper<>();
+        countWrapper.eq(UserApiConfig::getUserId, dto.getUserId());
+        boolean isFirstConfig = this.count(countWrapper) == 0;
+
         // 设置默认值
         if (config.getIsDefault() == null) {
-            config.setIsDefault(0);
+            // 如果是用户的第一条配置，自动设为默认
+            config.setIsDefault(isFirstConfig ? 1 : 0);
         }
         if (config.getStatus() == null) {
             config.setStatus(1);

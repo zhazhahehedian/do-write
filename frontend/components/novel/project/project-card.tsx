@@ -74,7 +74,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem asChild>
-                <Link href={`/project/${project.id}/wizard`}>
+                <Link href={`/project/wizard/${project.id}`}>
                   <Sparkles className="mr-2 h-4 w-4" />
                   创作向导
                 </Link>

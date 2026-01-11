@@ -12,6 +12,10 @@ REDIS_PORT: 6379
 REDIS_PASSWORD: 'K9#pQ2!sL7'
 REDIS_DATABASE: 0
 
+# ChromaDB 配置
+CHROMA_HOST: http://localhost
+CHROMA_PORT: 8800
+
 # OAuth 配置（可选，如果不用可以保持默认值）
 LINUXDO_CLIENT_ID: your-dev-client-id
 LINUXDO_CLIENT_SECRET: your-dev-client-secret
@@ -23,8 +27,19 @@ APP_BASE_URL: http://localhost:8080
 server:
   port: 8099
 
+# ========== AI 配置覆盖 ==========
+# DashScope API Key - 覆盖 application.yml 中的占位符
+# 由于 spring-ai-alibaba 可能优先读取此配置，无法加载数据库的配置，需要在这里设置真实的 API Key
+spring:
+  ai:
+    dashscope:
+      api-key: sk-79579dd01f534b86b10ca1948fc6db83
+
 # ========== 日志配置 ==========
 logging:
   level:
     com.dpbug: DEBUG
     org.springframework.ai: DEBUG
+    # 打印 HTTP 请求详情，用于调试 API 调用
+    org.springframework.web.client.RestClient: DEBUG
+    org.springframework.http.client: DEBUG

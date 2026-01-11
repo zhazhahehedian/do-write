@@ -28,6 +28,7 @@
 		<!-- Spring相关 -->
 		<spring-boot.version>3.4.12</spring-boot.version>
 		<spring-ai.version>1.1.2</spring-ai.version>
+		<spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
 
 		<!-- 数据库相关 -->
 		<mysql-connector-java.version>8.0.44</mysql-connector-java.version>
@@ -291,6 +292,13 @@
 				<groupId>org.springframework.ai</groupId>
 				<artifactId>spring-ai-starter-mcp-client-webflux</artifactId>
 				<version>${spring-ai.version}</version>
+			</dependency>
+
+			<!-- ==================== Spring AI Alibaba (DashScope) ==================== -->
+			<dependency>
+				<groupId>com.alibaba.cloud.ai</groupId>
+				<artifactId>spring-ai-alibaba-starter-dashscope</artifactId>
+				<version>${spring-ai-alibaba.version}</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>

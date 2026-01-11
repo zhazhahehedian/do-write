@@ -172,6 +172,19 @@ public class CharacterServiceImpl implements CharacterService {
         return characterMapper.selectStatistics(projectId);
     }
 
+    @Override
+    public List<CharacterVO> listByProjectInternal(Long projectId) {
+        LambdaQueryWrapper<NovelCharacter> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelCharacter::getProjectId, projectId)
+                .orderByAsc(NovelCharacter::getCreateTime);
+
+        List<NovelCharacter> characters = characterMapper.selectList(wrapper);
+
+        return characters.stream()
+                .map(this::convertToVO)
+                .toList();
+    }
+
     /**
      * 转换为VO
      */

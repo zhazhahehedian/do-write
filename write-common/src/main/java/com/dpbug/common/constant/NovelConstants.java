@@ -233,6 +233,14 @@ public interface NovelConstants {
          * 剧情分析
          */
         String ANALYSIS = "analysis";
+        /**
+         * 角色生成
+         */
+        String CHARACTERS = "characters";
+        /**
+         * 大纲生成
+         */
+        String OUTLINES = "outlines";
     }
 
     /**

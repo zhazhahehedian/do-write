@@ -47,26 +47,43 @@ public class ChapterController {
 
     /**
      * 生成单个章节（SSE流式）
+     * 注意：不使用@Valid，改为手动校验，以便在SSE流中返回错误
      */
     @PostMapping(value = "/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> generateChapter(
-            @RequestBody @Valid ChapterGenerateRequest request) {
+            @RequestBody ChapterGenerateRequest request) {
+        // 手动参数校验，确保错误能以SSE格式返回
+        if (request.getProjectId() == null) {
+            return Flux.just(ServerSentEvent.<String>builder()
+                    .event("error")
+                    .data("{\"type\":\"error\",\"error\":\"项目ID不能为空\"}")
+                    .build());
+        }
+        if (request.getOutlineId() == null) {
+            return Flux.just(ServerSentEvent.<String>builder()
+                    .event("error")
+                    .data("{\"type\":\"error\",\"error\":\"大纲ID不能为空\"}")
+                    .build());
+        }
+
         Long userId = StpUtil.getLoginIdAsLong();
 
         return chapterService.generateChapter(userId, request)
                 .map(content -> ServerSentEvent.<String>builder()
                         .event("message")
-                        .data(content)
+                        .data("{\"type\":\"chunk\",\"content\":\"" + escapeJson(content) + "\"}")
                         .build())
                 .concatWith(Mono.just(ServerSentEvent.<String>builder()
                         .event("done")
-                        .data("[DONE]")
+                        .data("{\"type\":\"done\"}")
                         .build()))
                 .onErrorResume(e -> {
                     log.error("章节生成失败", e);
+                    String errorJson = "{\"type\":\"error\",\"error\":\"" +
+                            e.getMessage().replace("\"", "\\\"") + "\"}";
                     return Mono.just(ServerSentEvent.<String>builder()
                             .event("error")
-                            .data(e.getMessage())
+                            .data(errorJson)
                             .build());
                 });
     }
@@ -89,23 +106,25 @@ public class ChapterController {
     @PostMapping(value = "/regenerate/{chapterId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> regenerateChapter(
             @PathVariable Long chapterId,
-            @RequestBody @Valid ChapterGenerateRequest request) {
+            @RequestBody ChapterGenerateRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
 
         return chapterService.regenerateChapter(userId, chapterId, request)
                 .map(content -> ServerSentEvent.<String>builder()
                         .event("message")
-                        .data(content)
+                        .data("{\"type\":\"chunk\",\"content\":\"" + escapeJson(content) + "\"}")
                         .build())
                 .concatWith(Mono.just(ServerSentEvent.<String>builder()
                         .event("done")
-                        .data("[DONE]")
+                        .data("{\"type\":\"done\"}")
                         .build()))
                 .onErrorResume(e -> {
                     log.error("重新生成章节失败: chapterId={}", chapterId, e);
+                    String errorJson = "{\"type\":\"error\",\"error\":\"" +
+                            e.getMessage().replace("\"", "\\\"") + "\"}";
                     return Mono.just(ServerSentEvent.<String>builder()
                             .event("error")
-                            .data(e.getMessage())
+                            .data(errorJson)
                             .build());
                 });
     }
@@ -115,23 +134,33 @@ public class ChapterController {
      */
     @PostMapping(value = "/polish", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> polishChapter(
-            @RequestBody @Valid ChapterPolishRequest request) {
+            @RequestBody ChapterPolishRequest request) {
+        // 手动参数校验
+        if (request.getChapterId() == null) {
+            return Flux.just(ServerSentEvent.<String>builder()
+                    .event("error")
+                    .data("{\"type\":\"error\",\"error\":\"章节ID不能为空\"}")
+                    .build());
+        }
+
         Long userId = StpUtil.getLoginIdAsLong();
 
         return chapterService.polishChapter(userId, request)
                 .map(content -> ServerSentEvent.<String>builder()
                         .event("message")
-                        .data(content)
+                        .data("{\"type\":\"chunk\",\"content\":\"" + escapeJson(content) + "\"}")
                         .build())
                 .concatWith(Mono.just(ServerSentEvent.<String>builder()
                         .event("done")
-                        .data("[DONE]")
+                        .data("{\"type\":\"done\"}")
                         .build()))
                 .onErrorResume(e -> {
                     log.error("润色章节失败: chapterId={}", request.getChapterId(), e);
+                    String errorJson = "{\"type\":\"error\",\"error\":\"" +
+                            e.getMessage().replace("\"", "\\\"") + "\"}";
                     return Mono.just(ServerSentEvent.<String>builder()
                             .event("error")
-                            .data(e.getMessage())
+                            .data(errorJson)
                             .build());
                 });
     }
@@ -147,17 +176,19 @@ public class ChapterController {
         return chapterService.denoiseChapter(userId, chapterId)
                 .map(content -> ServerSentEvent.<String>builder()
                         .event("message")
-                        .data(content)
+                        .data("{\"type\":\"chunk\",\"content\":\"" + escapeJson(content) + "\"}")
                         .build())
                 .concatWith(Mono.just(ServerSentEvent.<String>builder()
                         .event("done")
-                        .data("[DONE]")
+                        .data("{\"type\":\"done\"}")
                         .build()))
                 .onErrorResume(e -> {
                     log.error("AI去味失败: chapterId={}", chapterId, e);
+                    String errorJson = "{\"type\":\"error\",\"error\":\"" +
+                            e.getMessage().replace("\"", "\\\"") + "\"}";
                     return Mono.just(ServerSentEvent.<String>builder()
                             .event("error")
-                            .data(e.getMessage())
+                            .data(errorJson)
                             .build());
                 });
     }
@@ -243,5 +274,20 @@ public class ChapterController {
         Long userId = StpUtil.getLoginIdAsLong();
         taskService.cancelTask(userId, taskId);
         return Result.success();
+    }
+
+    /**
+     * 转义 JSON 字符串中的特殊字符
+     */
+    private String escapeJson(String content) {
+        if (content == null) {
+            return "";
+        }
+        return content
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\n", "\\n")
+                .replace("\r", "\\r")
+                .replace("\t", "\\t");
     }
 }

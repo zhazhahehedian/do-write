@@ -35,5 +35,12 @@ export const userConfigApi = {
         method: 'POST',
         url: '/userConfig/setDefault',
         data: { userId, id }
-    })
+    }),
+
+  validate: (data: UserApiConfigCreateRequest) =>
+    request<boolean>({
+      method: 'POST',
+      url: '/userConfig/validate',
+      data,
+    }),
 }

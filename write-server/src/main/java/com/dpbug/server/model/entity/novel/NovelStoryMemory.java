@@ -1,27 +1,38 @@
 package com.dpbug.server.model.entity.novel;
 
+import com.baomidou.mybatisplus.annotation.FieldFill;
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
-import com.dpbug.server.model.entity.base.BaseEntity;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
+import java.io.Serializable;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * 故事记忆实体类
  * <p>
  * 用于存储章节中提取的关键情节点、伏笔、悬念等记忆信息，
- * 支持RAG（检索增强生成）功能
+ * 支持RAG（检索增强生成）功能。
+ * 不继承 BaseEntity，跟随项目生命周期，删除时物理删除。
  *
  * @author dpbug
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
 @TableName(value = "novel_story_memory", autoResultMap = true)
-public class NovelStoryMemory extends BaseEntity {
+public class NovelStoryMemory implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    /**
+     * 主键ID（雪花算法生成）
+     */
+    @TableId(value = "id", type = IdType.ASSIGN_ID)
+    private Long id;
 
     /**
      * 项目ID
@@ -94,4 +105,16 @@ public class NovelStoryMemory extends BaseEntity {
      * 使用的嵌入模型
      */
     private String embeddingModel;
+
+    /**
+     * 创建时间
+     */
+    @TableField(fill = FieldFill.INSERT)
+    private LocalDateTime createTime;
+
+    /**
+     * 更新时间
+     */
+    @TableField(fill = FieldFill.INSERT_UPDATE)
+    private LocalDateTime updateTime;
 }

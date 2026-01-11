@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button } from '@/components/ui/button'
@@ -23,14 +24,32 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { projectApi } from '@/lib/api/project'
+import { useApiConfigCheck } from '@/hooks/use-api-config-check'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
+
+// 叙事视角选项
+const narrativePerspectives = [
+  { value: 'first_person', label: '第一人称' },
+  { value: 'third_person_limited', label: '第三人称限知视角' },
+  { value: 'third_person_omniscient', label: '第三人称全知视角' },
+  { value: 'multiple', label: '多视角' },
+]
 
 const projectCreateSchema = z.object({
   title: z.string().min(1, '请输入项目标题').max(50, '标题不能超过50个字符'),
   description: z.string().max(200, '描述不能超过200个字符').optional(),
   genre: z.string().optional(),
+  theme: z.string().max(100, '主题不能超过100个字符').optional(),
+  narrativePerspective: z.string().optional(),
   targetWords: z.coerce.number().optional(),
 })
 
@@ -48,6 +67,8 @@ export function ProjectCreateDialog({
   onSuccess,
 }: ProjectCreateDialogProps) {
   const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const { checkAndRedirect } = useApiConfigCheck()
 
   const form = useForm({
     resolver: zodResolver(projectCreateSchema),
@@ -55,21 +76,35 @@ export function ProjectCreateDialog({
       title: '',
       description: '',
       genre: '',
+      theme: '',
+      narrativePerspective: 'third_person_limited',
       targetWords: 100000,
     },
   })
 
   async function onSubmit(data: ProjectCreateFormValues) {
+    // 1. 检查 API 配置
+    const hasConfig = checkAndRedirect()
+    if (!hasConfig) return
+
     setIsLoading(true)
     try {
-      await projectApi.create({
+      // 2. 创建项目
+      const result = await projectApi.create({
         ...data,
         targetWords: Number(data.targetWords),
       })
+
       toast.success('项目创建成功')
       onOpenChange(false)
       form.reset()
-      onSuccess?.()
+
+      // 3. 自动跳转到向导页面
+      if (result) {
+        router.push(`/project/wizard/${result}?step=world`)
+      } else {
+        onSuccess?.()
+      }
     } catch (error: any) {
       console.error(error)
       // Error handled by api interceptor
@@ -111,6 +146,43 @@ export function ProjectCreateDialog({
                   <FormControl>
                     <Input placeholder="例如：玄幻、都市、言情" {...field} />
                   </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="theme"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>主题</FormLabel>
+                  <FormControl>
+                    <Input placeholder="例如：修仙、重生、系统流" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="narrativePerspective"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>叙事视角</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="选择叙事视角" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {narrativePerspectives.map((perspective) => (
+                        <SelectItem key={perspective.value} value={perspective.value}>
+                          {perspective.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

@@ -48,7 +48,7 @@ apiClient.interceptors.response.use(
     const status = error.response?.status
     const message = error.response?.data?.message || error.message
 
-    // 错误提示
+    // 错误提示映射（用于生成更友好的错误信息）
     const errorMessages: Record<number, string> = {
       400: '请求参数错误',
       401: '登录已过期，请重新登录',
@@ -63,15 +63,19 @@ apiClient.interceptors.response.use(
       ? errorMessages[status] || message
       : '网络连接失败'
 
-    toast.error(displayMessage)
+    // 将友好的错误信息附加到error对象上，由调用方决定是否显示toast
+    // 不在这里自动显示toast，避免与组件中的onError重复提示
+    const enhancedError = new Error(displayMessage) as Error & { originalError: AxiosError }
+    enhancedError.originalError = error
 
-    // 401 跳转登录
+    // 401 跳转登录（这是唯一需要在拦截器中处理的情况）
     if (status === 401 && typeof window !== 'undefined') {
+      toast.error(displayMessage)
       localStorage.removeItem('token')
       window.location.href = '/login'
     }
 
-    return Promise.reject(error)
+    return Promise.reject(enhancedError)
   }
 )
 

@@ -46,7 +46,6 @@
         <foreach collection="ids" item="id" open="(" separator="," close=")">
             #{id}
         </foreach>
-        AND is_deleted = 0
         ORDER BY story_timeline DESC, importance_score DESC
     </select>
 
@@ -54,7 +53,6 @@
     <select id="selectPageByProject" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
         SELECT * FROM novel_story_memory
         WHERE project_id = #{projectId}
-        AND is_deleted = 0
         <if test="memoryType != null and memoryType != ''">
             AND memory_type = #{memoryType}
         </if>
@@ -68,7 +66,6 @@
             COUNT(*) AS count
         FROM novel_story_memory
         WHERE project_id = #{projectId}
-          AND is_deleted = 0
         GROUP BY memory_type
     </select>
 
@@ -76,7 +73,6 @@
     <select id="selectByTimelineRange" resultType="com.dpbug.server.model.entity.novel.NovelStoryMemory">
         SELECT * FROM novel_story_memory
         WHERE project_id = #{projectId}
-          AND is_deleted = 0
           AND story_timeline BETWEEN #{startTimeline} AND #{endTimeline}
         ORDER BY story_timeline ASC, importance_score DESC
     </select>

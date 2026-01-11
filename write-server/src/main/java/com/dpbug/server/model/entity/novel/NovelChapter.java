@@ -47,8 +47,9 @@ public class NovelChapter extends BaseEntity {
 
     /**
      * 章节内容
+     * <p>使用 NOT_NULL 策略，避免部分更新时误将 content 置为 null</p>
      */
-    @TableField(updateStrategy = FieldStrategy.ALWAYS)
+    @TableField(updateStrategy = FieldStrategy.NOT_NULL)
     private String content;
 
     /**

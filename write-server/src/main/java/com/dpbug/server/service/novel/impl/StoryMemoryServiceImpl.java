@@ -9,10 +9,12 @@ import com.dpbug.common.constant.NovelConstants;
 import com.dpbug.common.domain.PageResult;
 import com.dpbug.server.ai.ChatClientFactory;
 import com.dpbug.server.ai.ChromaVectorStoreFactory;
+import com.dpbug.server.mapper.novel.CharacterMapper;
 import com.dpbug.server.mapper.novel.ChapterMapper;
 import com.dpbug.server.mapper.novel.StoryMemoryMapper;
 import com.dpbug.server.model.dto.novel.StoryMemoryQueryRequest;
 import com.dpbug.server.model.entity.novel.NovelChapter;
+import com.dpbug.server.model.entity.novel.NovelCharacter;
 import com.dpbug.server.model.entity.novel.NovelStoryMemory;
 import com.dpbug.server.model.vo.novel.MemoryStatisticsVO;
 import com.dpbug.server.model.vo.novel.StoryMemoryVO;
@@ -53,6 +55,7 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
 
     private final StoryMemoryMapper storyMemoryMapper;
     private final ChapterMapper chapterMapper;
+    private final CharacterMapper characterMapper;
     private final ChatClientFactory chatClientFactory;
     private final ChromaVectorStoreFactory chromaVectorStoreFactory;
     private final EmbeddingModel embeddingModel;
@@ -71,6 +74,8 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
             - content: 内容描述(50字以内)
             - importance: 重要性 0.0-1.0
             - is_foreshadow: 是否为伏笔(true/false)
+            - related_characters: 相关角色名称列表(数组,如["叶寒","魁怜"])
+            - related_locations: 相关地点名称列表(数组,如["菊花荫","桃花岛"])
 
             章节内容:
             {content}
@@ -118,18 +123,25 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
 
     /**
      * 解析AI返回的记忆JSON
+     * <p>AI可能返回被markdown代码块包裹的JSON，需要先清理</p>
      */
     private List<NovelStoryMemory> parseMemories(String json, Long projectId,
                                                   Long chapterId, Integer chapterNumber) {
         List<NovelStoryMemory> result = new ArrayList<>();
+        // 收集所有角色名称，用于批量查询
+        List<String> allCharacterNames = new ArrayList<>();
+
         try {
-            JSONObject jsonObject = JSON.parseObject(json);
+            // 清理markdown代码块标记
+            String cleanedJson = cleanMarkdownCodeBlock(json);
+            JSONObject jsonObject = JSON.parseObject(cleanedJson);
             JSONArray memoriesArray = jsonObject.getJSONArray("memories");
 
             if (memoriesArray == null) {
                 return result;
             }
 
+            // 第一遍：解析基本字段，收集角色名称
             for (int i = 0; i < memoriesArray.size(); i++) {
                 JSONObject m = memoriesArray.getJSONObject(i);
                 NovelStoryMemory memory = new NovelStoryMemory();
@@ -143,12 +155,80 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
                 memory.setIsForeshadow(m.getBooleanValue("is_foreshadow") ?
                         NovelConstants.ForeshadowStatus.PLANTED :
                         NovelConstants.ForeshadowStatus.NORMAL);
+
+                // 收集角色名称
+                JSONArray charactersArray = m.getJSONArray("related_characters");
+                if (charactersArray != null && !charactersArray.isEmpty()) {
+                    List<String> characterNames = charactersArray.toJavaList(String.class);
+                    allCharacterNames.addAll(characterNames);
+                    // 暂存角色名称到 fullContext，后续替换为ID
+                    memory.setFullContext(String.join(",", characterNames));
+                }
+
+                // 解析相关地点
+                JSONArray locationsArray = m.getJSONArray("related_locations");
+                if (locationsArray != null && !locationsArray.isEmpty()) {
+                    List<String> locations = locationsArray.toJavaList(String.class);
+                    memory.setRelatedLocations(locations);
+                }
+
                 result.add(memory);
             }
+
+            // 批量查询角色名称对应的ID
+            if (!allCharacterNames.isEmpty()) {
+                Map<String, Long> nameToIdMap = buildCharacterNameToIdMap(projectId, allCharacterNames);
+
+                // 第二遍：将角色名称映射为ID
+                for (NovelStoryMemory memory : result) {
+                    if (memory.getFullContext() != null && !memory.getFullContext().isEmpty()) {
+                        String[] names = memory.getFullContext().split(",");
+                        List<Long> characterIds = new ArrayList<>();
+                        for (String name : names) {
+                            Long id = nameToIdMap.get(name.trim());
+                            if (id != null) {
+                                characterIds.add(id);
+                            }
+                        }
+                        memory.setRelatedCharacters(characterIds.isEmpty() ? null : characterIds);
+                        // 清空临时存储
+                        memory.setFullContext(null);
+                    }
+                }
+            }
+
         } catch (Exception e) {
             log.warn("解析记忆JSON失败: {}", e.getMessage());
         }
         return result;
+    }
+
+    /**
+     * 构建角色名称到ID的映射
+     *
+     * @param projectId 项目ID
+     * @param names     角色名称列表
+     * @return 名称到ID的映射
+     */
+    private Map<String, Long> buildCharacterNameToIdMap(Long projectId, List<String> names) {
+        Map<String, Long> map = new HashMap<>();
+        if (names == null || names.isEmpty()) {
+            return map;
+        }
+
+        // 去重
+        List<String> uniqueNames = names.stream().distinct().toList();
+
+        try {
+            List<NovelCharacter> characters = characterMapper.selectByProjectAndNames(projectId, uniqueNames);
+            for (NovelCharacter character : characters) {
+                map.put(character.getName(), character.getId());
+            }
+        } catch (Exception e) {
+            log.warn("查询角色名称映射失败: projectId={}", projectId, e);
+        }
+
+        return map;
     }
 
     @Override
@@ -159,6 +239,9 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
 
         // 获取项目专属的 VectorStore
         VectorStore vectorStore = getVectorStore(userId, projectId);
+
+        // 获取当前章节ID（用于伏笔回收标记）
+        Long currentChapterId = memories.get(0).getChapterId();
 
         for (NovelStoryMemory memory : memories) {
             // 保存到MySQL
@@ -175,7 +258,69 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
             }
         }
 
+        // 检测并自动回收伏笔
+        tryAutoResolveForeshadows(userId, projectId, currentChapterId, memories);
+
         log.info("保存记忆成功: projectId={}, count={}", projectId, memories.size());
+    }
+
+    /**
+     * 尝试自动回收伏笔
+     * <p>通过语义相似度检测当前章节的记忆是否与之前埋下的伏笔相关</p>
+     *
+     * @param userId          用户ID
+     * @param projectId       项目ID
+     * @param currentChapterId 当前章节ID
+     * @param currentMemories 当前章节提取的记忆
+     */
+    private void tryAutoResolveForeshadows(Long userId, Long projectId, Long currentChapterId,
+                                            List<NovelStoryMemory> currentMemories) {
+        try {
+            // 获取所有待回收的伏笔
+            List<NovelStoryMemory> pendingForeshadows = storyMemoryMapper.selectPendingForeshadows(projectId);
+            if (pendingForeshadows.isEmpty()) {
+                return;
+            }
+
+            // 获取 VectorStore
+            VectorStore vectorStore = getVectorStore(userId, projectId);
+
+            // 对每个待回收伏笔，检查当前章节是否有相关内容
+            for (NovelStoryMemory foreshadow : pendingForeshadows) {
+                // 跳过当前章节自己埋下的伏笔
+                if (foreshadow.getChapterId().equals(currentChapterId)) {
+                    continue;
+                }
+
+                // 使用伏笔内容进行语义检索
+                String query = foreshadow.getTitle() + " " + foreshadow.getContent();
+                FilterExpressionBuilder builder = new FilterExpressionBuilder();
+                var filterExpression = builder.and(
+                        builder.eq("project_id", projectId.toString()),
+                        builder.eq("chapter_id", currentChapterId.toString())
+                ).build();
+
+                List<Document> results = vectorStore.similaritySearch(
+                        SearchRequest.builder()
+                                .query(query)
+                                .topK(1)
+                                .similarityThreshold(0.7)  // 较高阈值，确保相关性
+                                .filterExpression(filterExpression)
+                                .build()
+                );
+
+                // 如果找到高相似度匹配，标记伏笔已回收
+                if (!results.isEmpty()) {
+                    foreshadow.setIsForeshadow(NovelConstants.ForeshadowStatus.RESOLVED);
+                    foreshadow.setForeshadowResolvedAt(currentChapterId);
+                    storyMemoryMapper.updateById(foreshadow);
+                    log.info("自动回收伏笔: foreshadowId={}, title={}, resolvedAt={}",
+                            foreshadow.getId(), foreshadow.getTitle(), currentChapterId);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("自动回收伏笔检测失败: projectId={}", projectId, e);
+        }
     }
 
     /**
@@ -357,8 +502,7 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
         Page<NovelStoryMemory> page = new Page<>(request.getPageNum(), request.getPageSize());
 
         LambdaQueryWrapper<NovelStoryMemory> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(NovelStoryMemory::getProjectId, request.getProjectId())
-                .eq(NovelStoryMemory::getIsDeleted, 0);
+        wrapper.eq(NovelStoryMemory::getProjectId, request.getProjectId());
         if (request.getChapterId() != null) {
             wrapper.eq(NovelStoryMemory::getChapterId, request.getChapterId());
         }
@@ -421,23 +565,23 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
         // 伏笔统计
         LambdaQueryWrapper<NovelStoryMemory> pendingWrapper = new LambdaQueryWrapper<>();
         pendingWrapper.eq(NovelStoryMemory::getProjectId, projectId)
-                .eq(NovelStoryMemory::getIsForeshadow, NovelConstants.ForeshadowStatus.PLANTED)
-                .eq(NovelStoryMemory::getIsDeleted, 0);
-        vo.setPendingForeshadowCount(Math.toIntExact(storyMemoryMapper.selectCount(pendingWrapper)));
+                .eq(NovelStoryMemory::getIsForeshadow, NovelConstants.ForeshadowStatus.PLANTED);
+        Long pendingCount = storyMemoryMapper.selectCount(pendingWrapper);
+        vo.setPendingForeshadowCount(pendingCount == null ? 0 : Math.toIntExact(pendingCount));
 
         LambdaQueryWrapper<NovelStoryMemory> resolvedWrapper = new LambdaQueryWrapper<>();
         resolvedWrapper.eq(NovelStoryMemory::getProjectId, projectId)
-                .eq(NovelStoryMemory::getIsForeshadow, NovelConstants.ForeshadowStatus.RESOLVED)
-                .eq(NovelStoryMemory::getIsDeleted, 0);
-        vo.setResolvedForeshadowCount(Math.toIntExact(storyMemoryMapper.selectCount(resolvedWrapper)));
+                .eq(NovelStoryMemory::getIsForeshadow, NovelConstants.ForeshadowStatus.RESOLVED);
+        Long resolvedCount = storyMemoryMapper.selectCount(resolvedWrapper);
+        vo.setResolvedForeshadowCount(resolvedCount == null ? 0 : Math.toIntExact(resolvedCount));
 
-        // 覆盖章节数
+        // 覆盖章节数 - 使用 selectList + groupBy 获取不重复的章节ID，再计算数量
         LambdaQueryWrapper<NovelStoryMemory> chapterWrapper = new LambdaQueryWrapper<>();
         chapterWrapper.eq(NovelStoryMemory::getProjectId, projectId)
-                .eq(NovelStoryMemory::getIsDeleted, 0)
                 .select(NovelStoryMemory::getChapterId)
                 .groupBy(NovelStoryMemory::getChapterId);
-        vo.setCoveredChapterCount(Math.toIntExact(storyMemoryMapper.selectCount(chapterWrapper)));
+        List<NovelStoryMemory> chapterList = storyMemoryMapper.selectList(chapterWrapper);
+        vo.setCoveredChapterCount(chapterList == null ? 0 : chapterList.size());
 
         return vo;
     }
@@ -486,5 +630,30 @@ public class StoryMemoryServiceImpl implements StoryMemoryService {
         StoryMemoryVO vo = new StoryMemoryVO();
         BeanUtils.copyProperties(memory, vo);
         return vo;
+    }
+
+    /**
+     * 清理markdown代码块标记
+     * <p>AI返回的JSON可能被```json ... ```包裹，需要去除</p>
+     *
+     * @param text AI返回的原始文本
+     * @return 清理后的JSON文本
+     */
+    private String cleanMarkdownCodeBlock(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String cleaned = text.trim();
+        // 去除开头的 ```json 或 ```
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        } else if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        // 去除结尾的 ```
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        return cleaned.trim();
     }
 }

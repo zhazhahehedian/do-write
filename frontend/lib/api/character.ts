@@ -10,6 +10,16 @@ export const characterApi = {
       params: { projectId, ...params },
     }),
 
+  // 获取项目下所有角色（不分页）
+  listByProject: async (projectId: string): Promise<Character[]> => {
+    const result = await request<PageResult<Character>>({
+      method: 'GET',
+      url: '/novel/character/list',
+      params: { projectId, pageSize: 100 },
+    })
+    return result.list
+  },
+
   getById: (id: string) =>
     request<Character>({
       method: 'GET',

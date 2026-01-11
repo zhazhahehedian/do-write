@@ -13,11 +13,15 @@ import com.dpbug.server.model.dto.novel.OutlineGenerateRequest;
 import com.dpbug.server.model.dto.novel.ProjectUpdateRequest;
 import com.dpbug.server.model.dto.novel.WorldGenerateRequest;
 import com.dpbug.server.model.entity.novel.NovelCharacter;
+import com.dpbug.server.model.entity.novel.NovelGenerationTask;
 import com.dpbug.server.model.entity.novel.NovelProject;
 import com.dpbug.server.model.vo.novel.CharacterVO;
+import com.dpbug.server.model.vo.novel.GenerationTaskVO;
 import com.dpbug.server.service.novel.CharacterService;
+import com.dpbug.server.service.novel.GenerationTaskService;
 import com.dpbug.server.service.novel.OutlineService;
 import com.dpbug.server.service.novel.ProjectService;
+import com.dpbug.server.service.novel.WizardAsyncService;
 import com.dpbug.server.service.novel.WizardService;
 import com.dpbug.server.util.RedisLockUtil;
 import lombok.RequiredArgsConstructor;
@@ -51,6 +55,8 @@ public class WizardServiceImpl implements WizardService {
     private final ChatClientFactory chatClientFactory;
     private final WizardTransactionHelper transactionHelper;
     private final RedisLockUtil redisLockUtil;
+    private final GenerationTaskService taskService;
+    private final WizardAsyncService wizardAsyncService;
 
     /**
      * 流式生成超时时间（5分钟）
@@ -151,7 +157,8 @@ public class WizardServiceImpl implements WizardService {
         }
 
         try {
-            ChatClient chatClient = chatClientFactory.createForUser(userId);
+            // 使用复杂任务的ChatClient（更高的maxTokens）
+            ChatClient chatClient = chatClientFactory.createForComplexTask(userId);
 
             String systemPrompt = "你是一位专业的小说角色设计师。";
             String userPrompt = buildCharacterPrompt(project, request);
@@ -327,6 +334,111 @@ public class WizardServiceImpl implements WizardService {
                 characterCount,
                 outlineCount
         );
+    }
+
+    @Override
+    public GenerationTaskVO submitCharacterGenerationTask(Long userId, CharacterGenerateRequest request) {
+        Long projectId = request.getProjectId();
+
+        // 检查项目权限
+        NovelProject project = projectService.checkOwnership(userId, projectId);
+
+        // 校验世界观是否已生成
+        if (!isWorldGenerated(project)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "请先生成世界观");
+        }
+
+        // 防止重复提交
+        String lockKey = RedisLockUtil.wizardLockKey(userId, projectId, "characters");
+        if (!redisLockUtil.tryLock(lockKey)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "正在生成中，请勿重复提交");
+        }
+
+        try {
+            // 创建任务参数
+            Map<String, Object> params = new HashMap<>();
+            params.put("protagonistCount", request.getProtagonistCount());
+            params.put("supportingCount", request.getSupportingCount());
+            params.put("antagonistCount", request.getAntagonistCount());
+            params.put("organizationCount", request.getOrganizationCount());
+            params.put("customRequirements", request.getCustomRequirements());
+
+            // 创建任务
+            NovelGenerationTask task = taskService.createTask(
+                    userId, projectId, NovelConstants.TaskType.CHARACTERS, params);
+
+            // 异步执行角色生成（传入lockKey，由异步服务在完成后释放）
+            wizardAsyncService.asyncGenerateCharacters(userId, task, request, lockKey);
+
+            log.info("提交角色生成任务: userId={}, projectId={}, taskId={}",
+                    userId, projectId, task.getId());
+
+            // 返回任务信息
+            GenerationTaskVO vo = new GenerationTaskVO();
+            vo.setId(task.getId());
+            vo.setProjectId(projectId);
+            vo.setTaskType(task.getTaskType());
+            vo.setStatus(task.getStatus());
+            vo.setProgress(task.getProgress());
+            vo.setCurrentStep(task.getCurrentStep());
+            vo.setCreateTime(task.getCreateTime());
+
+            return vo;
+        } catch (Exception e) {
+            // 发生异常时释放锁
+            redisLockUtil.unlock(lockKey);
+            throw e;
+        }
+    }
+
+    @Override
+    public GenerationTaskVO submitOutlineGenerationTask(Long userId, OutlineGenerateRequest request) {
+        Long projectId = request.getProjectId();
+
+        // 检查角色是否已生成
+        List<CharacterVO> characters = characterService.listByProject(userId, projectId);
+        if (characters.isEmpty()) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "请先生成角色");
+        }
+
+        // 防止重复提交
+        String lockKey = RedisLockUtil.wizardLockKey(userId, projectId, "outlines");
+        if (!redisLockUtil.tryLock(lockKey)) {
+            throw new BusinessException(ResultCode.PARAM_ERROR, "正在生成中，请勿重复提交");
+        }
+
+        try {
+            // 创建任务参数
+            Map<String, Object> params = new HashMap<>();
+            params.put("outlineCount", request.getOutlineCount());
+            params.put("customRequirements", request.getCustomRequirements());
+
+            // 创建任务
+            NovelGenerationTask task = taskService.createTask(
+                    userId, projectId, NovelConstants.TaskType.OUTLINES, params);
+
+            // 异步执行大纲生成（传入lockKey，由异步服务在完成后释放）
+            wizardAsyncService.asyncGenerateOutlines(userId, task, request, lockKey);
+
+            log.info("提交大纲生成任务: userId={}, projectId={}, taskId={}",
+                    userId, projectId, task.getId());
+
+            // 返回任务信息
+            GenerationTaskVO vo = new GenerationTaskVO();
+            vo.setId(task.getId());
+            vo.setProjectId(projectId);
+            vo.setTaskType(task.getTaskType());
+            vo.setStatus(task.getStatus());
+            vo.setProgress(task.getProgress());
+            vo.setCurrentStep(task.getCurrentStep());
+            vo.setCreateTime(task.getCreateTime());
+
+            return vo;
+        } catch (Exception e) {
+            // 发生异常时释放锁
+            redisLockUtil.unlock(lockKey);
+            throw e;
+        }
     }
 
     /**

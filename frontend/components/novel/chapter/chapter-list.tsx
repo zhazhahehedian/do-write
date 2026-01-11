@@ -18,11 +18,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import {
   MoreHorizontal,
-  RefreshCw,
   Eye,
   Pencil,
   Trash2,
-  Sparkles,
 } from 'lucide-react'
 import Link from 'next/link'
 import type { Chapter } from '@/lib/types/chapter'
@@ -30,8 +28,6 @@ import type { Chapter } from '@/lib/types/chapter'
 interface ChapterListProps {
   chapters: Chapter[]
   projectId: string
-  onGenerate?: (chapterId: string) => void
-  onRegenerate?: (chapterId: string) => void
   onDelete?: (chapterId: string) => void
 }
 
@@ -45,8 +41,6 @@ const statusMap = {
 export function ChapterList({
   chapters,
   projectId,
-  onGenerate,
-  onRegenerate,
   onDelete,
 }: ChapterListProps) {
   return (
@@ -103,31 +97,19 @@ export function ChapterList({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      {chapter.generationStatus === 'pending' && (
-                        <DropdownMenuItem onClick={() => onGenerate?.(chapter.id.toString())}>
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          生成章节
-                        </DropdownMenuItem>
-                      )}
+                      <DropdownMenuItem asChild>
+                        <Link href={`/project/${projectId}/chapters/${chapter.id}`}>
+                          <Eye className="mr-2 h-4 w-4" />
+                          阅读
+                        </Link>
+                      </DropdownMenuItem>
                       {chapter.generationStatus === 'completed' && (
-                        <>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/project/${projectId}/chapters/${chapter.id}`}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              阅读
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/project/${projectId}/chapters/${chapter.id}/edit`}>
-                              <Pencil className="mr-2 h-4 w-4" />
-                              编辑
-                            </Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onRegenerate?.(chapter.id.toString())}>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            重新生成
-                          </DropdownMenuItem>
-                        </>
+                        <DropdownMenuItem asChild>
+                          <Link href={`/project/${projectId}/chapters/${chapter.id}/edit`}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            编辑
+                          </Link>
+                        </DropdownMenuItem>
                       )}
                       <DropdownMenuItem
                         className="text-destructive"

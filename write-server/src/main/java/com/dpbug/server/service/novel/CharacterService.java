@@ -90,4 +90,13 @@ public interface CharacterService {
      * @return 角色统计信息
      */
     CharacterStatisticsVO getStatistics(Long projectId);
+
+    /**
+     * 获取项目所有角色（内部方法，不校验权限）
+     * 仅供已校验权限的内部服务调用
+     *
+     * @param projectId 项目ID
+     * @return 角色列表
+     */
+    List<CharacterVO> listByProjectInternal(Long projectId);
 }

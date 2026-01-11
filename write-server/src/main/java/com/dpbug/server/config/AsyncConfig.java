@@ -5,6 +5,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -12,12 +14,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 /**
  * 异步任务配置
  *
+ * <p>同时配置 @Async 线程池和 WebMvc 异步请求线程池</p>
+ *
  * @author dpbug
  */
 @Slf4j
 @Configuration
 @EnableAsync
-public class AsyncConfig {
+public class AsyncConfig implements WebMvcConfigurer {
 
     /**
      * 章节生成专用线程池
@@ -55,7 +59,7 @@ public class AsyncConfig {
      * <p>用于其他异步任务</p>
      */
     @Bean("taskExecutor")
-    public Executor taskExecutor() {
+    public ThreadPoolTaskExecutor taskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(2);
         executor.setMaxPoolSize(4);
@@ -67,5 +71,19 @@ public class AsyncConfig {
         executor.initialize();
 
         return executor;
+    }
+
+    /**
+     * 配置 WebMvc 异步请求支持
+     *
+     * <p>用于 SSE 流式响应等异步 HTTP 请求，避免使用默认的 SimpleAsyncTaskExecutor</p>
+     */
+    @Override
+    public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+        // 使用通用异步线程池处理 WebMvc 异步请求
+        configurer.setTaskExecutor(taskExecutor());
+        // 设置异步请求超时时间（10分钟，适合长时间的 AI 生成任务）
+        configurer.setDefaultTimeout(600000);
+        log.info("WebMvc 异步支持配置完成: timeout=600000ms");
     }
 }

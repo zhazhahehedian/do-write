@@ -7,6 +7,8 @@ import com.dpbug.server.model.dto.novel.OutlineGenerateRequest;
 import com.dpbug.server.model.dto.novel.WizardStatusUpdateRequest;
 import com.dpbug.server.model.dto.novel.WorldGenerateRequest;
 import com.dpbug.server.model.vo.novel.CharacterVO;
+import com.dpbug.server.model.vo.novel.GenerationTaskVO;
+import com.dpbug.server.service.novel.GenerationTaskService;
 import com.dpbug.server.service.novel.WizardService;
 import com.dpbug.server.service.novel.WizardService.WizardProgressVO;
 import jakarta.validation.Valid;
@@ -39,6 +41,7 @@ import java.util.List;
 public class WizardController {
 
     private final WizardService wizardService;
+    private final GenerationTaskService taskService;
 
     /**
      * 生成世界观（SSE流式）
@@ -59,8 +62,10 @@ public class WizardController {
     }
 
     /**
-     * 生成角色（非流式）
+     * 生成角色（非流式，同步方式 - 已废弃，保留向后兼容）
+     * @deprecated 请使用 /characters/generate/async 异步接口
      */
+    @Deprecated
     @PostMapping("/characters/generate")
     public Result<List<CharacterVO>> generateCharacters(@RequestBody @Valid CharacterGenerateRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -69,8 +74,31 @@ public class WizardController {
     }
 
     /**
-     * 生成大纲（SSE流式）
+     * 异步生成角色
+     * 返回任务ID，前端通过轮询 /task/{taskId} 获取进度和结果
      */
+    @PostMapping("/characters/generate/async")
+    public Result<GenerationTaskVO> generateCharactersAsync(@RequestBody @Valid CharacterGenerateRequest request) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        GenerationTaskVO task = wizardService.submitCharacterGenerationTask(userId, request);
+        return Result.success(task);
+    }
+
+    /**
+     * 获取任务状态
+     */
+    @GetMapping("/task")
+    public Result<GenerationTaskVO> getTask(@RequestParam @NotNull(message = "任务ID不能为空") Long taskId) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        GenerationTaskVO task = taskService.getTask(userId, taskId);
+        return Result.success(task);
+    }
+
+    /**
+     * 生成大纲（SSE流式 - 已废弃，保留向后兼容）
+     * @deprecated 请使用 /outlines/generate/async 异步接口
+     */
+    @Deprecated
     @PostMapping(value = "/outlines/generate", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> generateOutlines(@RequestBody @Valid OutlineGenerateRequest request) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -84,6 +112,17 @@ public class WizardController {
                         .event("done")
                         .data("[DONE]")
                         .build()));
+    }
+
+    /**
+     * 异步生成大纲
+     * 返回任务ID，前端通过轮询 /task/{taskId} 获取进度和结果
+     */
+    @PostMapping("/outlines/generate/async")
+    public Result<GenerationTaskVO> generateOutlinesAsync(@RequestBody @Valid OutlineGenerateRequest request) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        GenerationTaskVO task = wizardService.submitOutlineGenerationTask(userId, request);
+        return Result.success(task);
     }
 
     /**

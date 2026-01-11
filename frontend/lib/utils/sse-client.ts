@@ -30,13 +30,25 @@ export class SSEPostClient {
   ): Promise<void> {
     this.abortController = new AbortController()
 
+    // 从 localStorage 获取 token
+    const token = typeof window !== 'undefined'
+      ? localStorage.getItem('token')
+      : null
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'text/event-stream',
+    }
+
+    // 添加 Bearer token 到请求头
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-        },
+        headers,
         body: JSON.stringify(data),
         signal: this.abortController.signal,
       })
@@ -52,6 +64,7 @@ export class SSEPostClient {
 
       const decoder = new TextDecoder()
       let buffer = ''
+      let currentEvent = 'message' // 默认事件类型
 
       while (true) {
         const { done, value } = await reader.read()
@@ -62,9 +75,22 @@ export class SSEPostClient {
         buffer = lines.pop() || ''
 
         for (const line of lines) {
+          // 解析事件类型
+          if (line.startsWith('event:')) {
+            currentEvent = line.slice(6).trim()
+            continue
+          }
+
           if (line.startsWith('data:')) {
             const jsonStr = line.slice(5).trim()
-            if (jsonStr === '[DONE]') {
+
+            // 跳过空数据
+            if (!jsonStr || jsonStr === '') {
+              continue
+            }
+
+            // 处理 done 事件或 [DONE] 标记
+            if (currentEvent === 'done' || jsonStr === '[DONE]') {
               options.onComplete?.()
               return
             }
@@ -73,8 +99,17 @@ export class SSEPostClient {
               const message: SSEMessage = JSON.parse(jsonStr)
               this.handleMessage(message, options)
             } catch (e) {
-              console.error('Failed to parse SSE message:', e)
+              // 如果解析失败，可能是纯文本 chunk（兼容旧格式）
+              // 直接作为 chunk 内容处理
+              if (jsonStr.length > 0 && !jsonStr.startsWith('{')) {
+                options.onChunk?.(jsonStr)
+              } else {
+                console.error('Failed to parse SSE message:', e, 'raw:', jsonStr)
+              }
             }
+
+            // 重置事件类型为默认值
+            currentEvent = 'message'
           }
         }
       }

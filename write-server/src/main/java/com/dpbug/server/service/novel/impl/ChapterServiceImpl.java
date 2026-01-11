@@ -83,12 +83,14 @@ public class ChapterServiceImpl implements ChapterService {
             throw new BusinessException(ResultCode.BUSINESS_ERROR, "该章节正在生成中，请稍后再试");
         }
 
+        NovelChapter chapter = null;
         try {
             // 计算章节号
             Integer chapterNumber = calculateChapterNumber(project.getId(), outline, request.getSubIndex());
 
             // 创建章节记录(状态:generating)
-            NovelChapter chapter = createChapterRecord(project, outline, chapterNumber, request);
+            chapter = createChapterRecord(project, outline, chapterNumber, request);
+            final Long chapterId = chapter.getId();
 
             ChapterContextVO context = contextBuilder.buildContext(userId, project, outline, chapterNumber, request);
 
@@ -108,15 +110,15 @@ public class ChapterServiceImpl implements ChapterService {
                         try {
                             // 保存章节内容
                             String modelName = chatClientFactory.getCurrentModelName(userId);
-                            saveChapterContent(chapter.getId(), fullContent.get(), modelName);
+                            saveChapterContent(chapterId, fullContent.get(), modelName);
 
                             // 通过异步服务提取记忆和生成摘要
-                            chapterAsyncService.asyncExtractMemories(userId, project.getId(), chapter.getId(),
-                                    chapter.getChapterNumber(), fullContent.get());
-                            chapterAsyncService.asyncGenerateSummary(chapter.getId(), fullContent.get());
+                            chapterAsyncService.asyncExtractMemories(userId, project.getId(), chapterId,
+                                    chapterNumber, fullContent.get());
+                            chapterAsyncService.asyncGenerateSummary(chapterId, fullContent.get());
 
                             // 更新项目统计
-                            updateProjectStatistics(project.getId());
+                            updateProjectStatistics(project);
                         } finally {
                             // 释放锁
                             GENERATION_LOCKS.remove(lockKey);
@@ -125,17 +127,23 @@ public class ChapterServiceImpl implements ChapterService {
                     .doOnError(error -> {
                         // 释放锁
                         GENERATION_LOCKS.remove(lockKey);
-                        updateChapterStatus(chapter.getId(), NovelConstants.GenerationStatus.FAILED);
-                        log.error("章节生成失败: chapterId={}", chapter.getId(), error);
+                        // 删除已创建的章节记录（因为生成失败了）
+                        chapterMapper.deleteById(chapterId);
+                        log.error("章节生成失败，已删除章节记录: chapterId={}", chapterId, error);
                     })
                     .doOnCancel(() -> {
-                        // 取消时也释放锁
+                        // 取消时也释放锁，并删除未完成的章节记录
                         GENERATION_LOCKS.remove(lockKey);
-                        log.info("章节生成被取消: chapterId={}", chapter.getId());
+                        chapterMapper.deleteById(chapterId);
+                        log.info("章节生成被取消，已删除章节记录: chapterId={}", chapterId);
                     });
         } catch (Exception e) {
-            // 异常时释放锁
+            // 异常时释放锁，并删除已创建的章节记录
             GENERATION_LOCKS.remove(lockKey);
+            if (chapter != null) {
+                chapterMapper.deleteById(chapter.getId());
+                log.warn("章节生成准备阶段异常，已删除章节记录: chapterId={}", chapter.getId());
+            }
             throw e;
         }
     }
@@ -328,10 +336,19 @@ public class ChapterServiceImpl implements ChapterService {
     }
 
     /**
-     * 更新项目统计
+     * 更新项目统计和状态
+     * <p>
+     * 当项目有章节生成完成时，自动将项目状态从"规划中"改为"创作中"
      */
-    private void updateProjectStatistics(Long projectId) {
+    private void updateProjectStatistics(NovelProject project) {
+        Long projectId = project.getId();
         projectService.refreshStatistics(projectId);
+
+        // 检查并更新项目状态：如果项目处于"规划中"状态，则更新为"创作中"
+        if (NovelConstants.ProjectStatus.PLANNING.equals(project.getStatus())) {
+            projectService.updateProjectStatus(projectId, NovelConstants.ProjectStatus.WRITING);
+        }
+
         log.info("更新项目统计: projectId={}", projectId);
     }
 
@@ -408,7 +425,7 @@ public class ChapterServiceImpl implements ChapterService {
                     chapterAsyncService.asyncExtractMemories(userId, project.getId(), newChapter.getId(),
                             newChapter.getChapterNumber(), fullContent.get());
                     chapterAsyncService.asyncGenerateSummary(newChapter.getId(), fullContent.get());
-                    updateProjectStatistics(project.getId());
+                    updateProjectStatistics(project);
                 })
                 .doOnError(error -> {
                     updateChapterStatus(newChapter.getId(), NovelConstants.GenerationStatus.FAILED);

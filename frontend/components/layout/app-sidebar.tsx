@@ -41,15 +41,14 @@ import {
 import {
   Home,
   FolderOpen,
-  Sparkles,
   Palette,
   KeyRound,
   LogOut,
   ChevronRight,
   ChevronLeft,
   ChevronDown,
-  UserRound,
   FileText,
+  HelpCircle,
 } from "lucide-react"
 
 import { useAuthStore } from "@/lib/store/auth-store"
@@ -60,10 +59,10 @@ const data = {
   navMain: [
     { title: "首页", url: "/home", icon: Home },
     { title: "我的项目", url: "/projects", icon: FolderOpen },
-    { title: "创作向导", url: "/wizard", icon: Sparkles },
   ],
   tools: [
     { title: "写作风格", url: "/styles", icon: FileText },
+    { title: "帮助文档", url: "/help", icon: HelpCircle },
   ],
 }
 
@@ -186,13 +185,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   </span>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => {
-                router.push("/settings/profile")
-                handleCloseSidebar()
-              }}>
-                <UserRound className="mr-2 size-4" />
-                <span>个人资料</span>
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 router.push("/settings/appearance")
                 handleCloseSidebar()

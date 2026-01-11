@@ -31,6 +31,21 @@ public class ProjectListVO implements Serializable {
     private String genre;
 
     /**
+     * 主题
+     */
+    private String theme;
+
+    /**
+     * 叙事视角
+     */
+    private String narrativePerspective;
+
+    /**
+     * 描述
+     */
+    private String description;
+
+    /**
      * 状态（planning/writing/completed）
      */
     private String status;

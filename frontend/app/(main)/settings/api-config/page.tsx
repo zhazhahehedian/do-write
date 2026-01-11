@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
   Card,
-  CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
@@ -20,6 +19,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -39,19 +39,44 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
-import { Switch } from '@/components/ui/switch'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus, Trash2, Pencil, Check } from 'lucide-react'
+import { Loader2, Plus, Trash2, Pencil, Check, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
+const apiTypeValues = ['OPENAI', 'AZURE_OPENAI', 'OLLAMA', 'CUSTOM'] as const
+type ApiType = (typeof apiTypeValues)[number]
+
+const optionalUrl = z.preprocess(
+  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  z.string().trim().url('请输入有效的 URL').optional()
+)
+
 const configSchema = z.object({
-  configName: z.string().min(1, '请输入配置名称'),
-  apiType: z.string().min(1, '请选择提供商'),
-  baseUrl: z.string().url('请输入有效的 URL').optional().or(z.literal('')),
-  apiKey: z.string().min(1, '请输入 API Key'),
-  modelName: z.string().min(1, '请输入模型名称'),
+  configName: z.string().trim().min(1, '请输入配置名称'),
+  apiType: z.enum(apiTypeValues, { required_error: '请选择提供商' }),
+  baseUrl: optionalUrl,
+  apiKey: z.string().trim().min(1, '请输入 API Key'),
+  modelName: z.string().trim().min(1, '请输入模型名称'),
+}).superRefine((values, ctx) => {
+  const baseUrlRequired = values.apiType === 'AZURE_OPENAI' || values.apiType === 'CUSTOM'
+  if (baseUrlRequired && !values.baseUrl) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['baseUrl'],
+      message: '该提供商需要填写 Base URL',
+    })
+  }
 })
 
 type ConfigFormValues = z.infer<typeof configSchema>
@@ -61,6 +86,8 @@ export default function ApiConfigPage() {
   const { user } = useAuthStore()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editingConfig, setEditingConfig] = useState<UserApiConfig | null>(null)
+  const [pendingDeleteConfig, setPendingDeleteConfig] = useState<UserApiConfig | null>(null)
+  const [selectedApiType, setSelectedApiType] = useState<ApiType>('OPENAI')
 
   // 查询配置列表
   const { data: configs, isLoading } = useQuery({
@@ -70,20 +97,23 @@ export default function ApiConfigPage() {
   })
 
   // 创建/更新配置
-  const saveMutation = useMutation<any, Error, ConfigFormValues & { id?: number }>({
-    mutationFn: (data: ConfigFormValues & { id?: number }) => {
+  type SaveVariables = ConfigFormValues & { id?: number }
+  type SaveResult = number | boolean
+
+  const saveMutation = useMutation<SaveResult, Error, SaveVariables>({
+    mutationFn: (data: SaveVariables) => {
+      const userId = user?.id || ''
       if (data.id) {
-        return userConfigApi.update({ ...data, userId: Number(user?.id) } as any)
-      } else {
-        return userConfigApi.create({ ...data, userId: Number(user?.id) } as any)
+        return userConfigApi.update({ ...data, userId, id: String(data.id) })
       }
+      return userConfigApi.create({ ...data, userId })
     },
     onSuccess: () => {
       toast.success(editingConfig ? '配置已更新' : '配置已创建')
       setDialogOpen(false)
       queryClient.invalidateQueries({ queryKey: ['api-configs'] })
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast.error(error.message || '保存失败')
     },
   })
@@ -93,7 +123,11 @@ export default function ApiConfigPage() {
     mutationFn: (id: number) => userConfigApi.delete(user?.id || '', id.toString()),
     onSuccess: () => {
       toast.success('配置已删除')
+      setPendingDeleteConfig(null)
       queryClient.invalidateQueries({ queryKey: ['api-configs'] })
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '删除失败')
     },
   })
 
@@ -106,6 +140,30 @@ export default function ApiConfigPage() {
     },
   })
 
+  // 测试连接
+  const validateMutation = useMutation({
+    mutationFn: (data: ConfigFormValues) => {
+      const userId = user?.id || ''
+      return userConfigApi.validate({ ...data, userId })
+    },
+    onSuccess: () => {
+      toast.success('连接测试成功')
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || '连接测试失败，请检查配置')
+    },
+  })
+
+  const handleTestConnection = async () => {
+    const isValid = await form.trigger()
+    if (!isValid) {
+      toast.error('请先填写完整的配置信息')
+      return
+    }
+    const values = form.getValues()
+    validateMutation.mutate(values)
+  }
+
   const form = useForm<ConfigFormValues>({
     resolver: zodResolver(configSchema),
     defaultValues: {
@@ -117,8 +175,36 @@ export default function ApiConfigPage() {
     },
   })
 
+  const baseUrlRequired = selectedApiType === 'AZURE_OPENAI' || selectedApiType === 'CUSTOM'
+  const baseUrlMeta = (() => {
+    switch (selectedApiType) {
+      case 'OLLAMA':
+        return {
+          placeholder: '例如：http://localhost:11434',
+          description: '不填则默认使用 http://localhost:11434。',
+        }
+      case 'AZURE_OPENAI':
+        return {
+          placeholder: '例如：https://{resource}.openai.azure.com',
+          description: 'Azure OpenAI 需要填写资源端点地址（通常不包含 /v1）。',
+        }
+      case 'CUSTOM':
+        return {
+          placeholder: '例如：https://xxx.com/v1',
+          description: '第三方/中转端点一般以 /v1 结尾，请以服务商文档为准。',
+        }
+      case 'OPENAI':
+      default:
+        return {
+          placeholder: '例如：https://api.openai.com/v1',
+          description: '不填则使用 OpenAI 官方默认端点；使用代理/中转时再填写。',
+        }
+    }
+  })()
+
   const handleEdit = (config: UserApiConfig) => {
     setEditingConfig(config)
+    setSelectedApiType(config.apiType as ApiType)
     form.reset({
       configName: config.configName,
       apiType: config.apiType,
@@ -131,12 +217,13 @@ export default function ApiConfigPage() {
 
   const handleCreate = () => {
     setEditingConfig(null)
+    setSelectedApiType('OPENAI')
     form.reset({
-        configName: '',
-        apiType: 'OPENAI',
-        baseUrl: '',
-        apiKey: '',
-        modelName: '',
+      configName: '',
+      apiType: 'OPENAI',
+      baseUrl: '',
+      apiKey: '',
+      modelName: '',
     })
     setDialogOpen(true)
   }
@@ -204,11 +291,7 @@ export default function ApiConfigPage() {
                     variant="ghost"
                     size="icon"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => {
-                        if(confirm('确定要删除此配置吗？')) {
-                            deleteMutation.mutate(config.id)
-                        }
-                    }}
+                    onClick={() => setPendingDeleteConfig(config)}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -240,7 +323,7 @@ export default function ApiConfigPage() {
                 name="configName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>配置名称</FormLabel>
+                    <FormLabel>配置名称 <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <Input placeholder="例如：我的 GPT-4" {...field} />
                     </FormControl>
@@ -253,8 +336,14 @@ export default function ApiConfigPage() {
                 name="apiType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>提供商</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormLabel>提供商 <span className="text-destructive">*</span></FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value)
+                        setSelectedApiType(value as ApiType)
+                      }}
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="选择提供商" />
@@ -263,7 +352,8 @@ export default function ApiConfigPage() {
                       <SelectContent>
                         <SelectItem value="OPENAI">OpenAI</SelectItem>
                         <SelectItem value="AZURE_OPENAI">Azure OpenAI</SelectItem>
-                        <SelectItem value="CUSTOM">Custom</SelectItem>
+                        <SelectItem value="OLLAMA">Ollama (本地模型)</SelectItem>
+                        <SelectItem value="CUSTOM">OpenAI 兼容 (第三方/中转)</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -275,7 +365,7 @@ export default function ApiConfigPage() {
                 name="modelName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>模型名称</FormLabel>
+                    <FormLabel>模型名称 <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <Input placeholder="例如：gpt-4-turbo" {...field} />
                     </FormControl>
@@ -288,10 +378,13 @@ export default function ApiConfigPage() {
                 name="baseUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Base URL (选填)</FormLabel>
+                    <FormLabel>
+                      Base URL {baseUrlRequired ? <span className="text-destructive">*</span> : '（选填）'}
+                    </FormLabel>
                     <FormControl>
-                      <Input placeholder="例如：https://api.openai.com/v1" {...field} />
+                      <Input placeholder={baseUrlMeta.placeholder} {...field} />
                     </FormControl>
+                    <FormDescription>{baseUrlMeta.description}</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -301,7 +394,7 @@ export default function ApiConfigPage() {
                 name="apiKey"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>API Key</FormLabel>
+                    <FormLabel>API Key <span className="text-destructive">*</span></FormLabel>
                     <FormControl>
                       <Input type="password" placeholder="sk-..." {...field} />
                     </FormControl>
@@ -309,8 +402,18 @@ export default function ApiConfigPage() {
                   </FormItem>
                 )}
               />
-              <DialogFooter>
-                <Button type="submit" disabled={saveMutation.isPending}>
+              <DialogFooter className="gap-2 sm:gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={validateMutation.isPending || saveMutation.isPending}
+                  onClick={handleTestConnection}
+                >
+                  {validateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  <Zap className="mr-2 h-4 w-4" />
+                  测试连接
+                </Button>
+                <Button type="submit" disabled={saveMutation.isPending || validateMutation.isPending}>
                   {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   保存
                 </Button>
@@ -319,6 +422,40 @@ export default function ApiConfigPage() {
           </Form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog
+        open={pendingDeleteConfig !== null}
+        onOpenChange={(open) => {
+          if (deleteMutation.isPending) return
+          if (!open) setPendingDeleteConfig(null)
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除配置？</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingDeleteConfig
+                ? `删除后将无法恢复，且会永久删除「${pendingDeleteConfig.configName}」。`
+                : '删除后将无法恢复，且会永久删除该配置。'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                if (!pendingDeleteConfig) return
+                deleteMutation.mutate(pendingDeleteConfig.id)
+              }}
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -12,4 +12,15 @@
         FROM novel_character
         WHERE project_id = #{projectId} AND is_deleted = 0
     </select>
+
+    <select id="selectByProjectAndNames" resultType="com.dpbug.server.model.entity.novel.NovelCharacter">
+        SELECT *
+        FROM novel_character
+        WHERE project_id = #{projectId}
+          AND is_deleted = 0
+          AND name IN
+        <foreach collection="names" item="name" open="(" separator="," close=")">
+            #{name}
+        </foreach>
+    </select>
 </mapper>

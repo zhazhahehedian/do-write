@@ -54,8 +54,8 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
         context.setWorldAtmosphere(project.getWorldAtmosphere());
         context.setWorldRules(project.getWorldRules());
 
-        // 3. 主要角色(主角+重要配角)
-        List<CharacterVO> characters = characterService.listByProject(null, project.getId());
+        // 3. 主要角色(主角+重要配角) - 使用内部方法，权限已在外层校验
+        List<CharacterVO> characters = characterService.listByProjectInternal(project.getId());
         context.setMainCharacters(filterMainCharacters(characters));
 
         // 4. 当前大纲

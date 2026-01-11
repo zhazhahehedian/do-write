@@ -11,13 +11,15 @@ interface CharacterListProps {
   isLoading?: boolean
   onAdd?: () => void
   onEdit?: (character: Character) => void
+  onDelete?: (id: string) => void
 }
 
-export function CharacterList({ 
-  characters, 
-  isLoading, 
-  onAdd, 
-  onEdit 
+export function CharacterList({
+  characters,
+  isLoading,
+  onAdd,
+  onEdit,
+  onDelete,
 }: CharacterListProps) {
   if (isLoading) {
     return (
@@ -62,6 +64,7 @@ export function CharacterList({
             key={character.id}
             character={character}
             onClick={() => onEdit?.(character)}
+            onDelete={() => onDelete?.(character.id.toString())}
           />
         ))}
       </div>

@@ -45,6 +45,8 @@ export interface ProjectListVO {
   id: number
   title: string
   genre?: string
+  theme?: string
+  narrativePerspective?: string
   status: ProjectStatus
   targetWords: number
   currentWords: number

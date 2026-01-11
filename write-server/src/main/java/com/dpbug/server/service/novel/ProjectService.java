@@ -93,4 +93,14 @@ public interface ProjectService {
      * @return 项目实体
      */
     NovelProject checkOwnership(Long userId, Long projectId);
+
+    /**
+     * 更新项目状态
+     * <p>
+     * 当项目从规划阶段进入创作阶段时调用
+     *
+     * @param projectId 项目ID
+     * @param status    项目状态 {@link com.dpbug.common.constant.NovelConstants.ProjectStatus}
+     */
+    void updateProjectStatus(Long projectId, String status);
 }
