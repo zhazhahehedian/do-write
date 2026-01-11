@@ -44,12 +44,16 @@ export interface Project {
 export interface ProjectListVO {
   id: number
   title: string
+  description?: string
   genre?: string
   theme?: string
   narrativePerspective?: string
   status: ProjectStatus
   targetWords: number
   currentWords: number
+  chapterCount?: number
+  characterCount?: number
+  actualChapterCount?: number
   wizardStatus: WizardStatus
   wizardStep: number
   createTime: string

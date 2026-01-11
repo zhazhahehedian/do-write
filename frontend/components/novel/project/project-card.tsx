@@ -26,10 +26,10 @@ import {
   Trash2,
 } from 'lucide-react'
 import Link from 'next/link'
-import type { Project } from '@/lib/types/project'
+import type { ProjectListVO } from '@/lib/types/project'
 
 interface ProjectCardProps {
-  project: Project
+  project: ProjectListVO
   onDelete?: (id: string) => void
 }
 
@@ -44,6 +44,8 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
   const progress = project.targetWords > 0
     ? Math.round((project.currentWords / project.targetWords) * 100)
     : 0
+  const chapterCount = project.actualChapterCount ?? project.chapterCount ?? 0
+  const characterCount = project.characterCount ?? 0
 
   return (
     <Card className="group hover:shadow-md transition-shadow">
@@ -107,11 +109,11 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <FileText className="h-4 w-4" />
-            <span>{project.chapterCount || 0} 章</span>
+            <span>{chapterCount} 章</span>
           </div>
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>{project.characterCount || 0} 角色</span>
+            <span>{characterCount} 角色</span>
           </div>
           <div className="flex items-center gap-1.5 text-muted-foreground">
             <BookOpen className="h-4 w-4" />

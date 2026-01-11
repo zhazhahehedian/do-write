@@ -700,74 +700,78 @@ public final class PromptTemplates {
      * </p>
      */
     public static final String PLOT_ANALYSIS = """
-            你是一位专业的小说编辑和剧情分析师。请深度分析以下章节内容:
+            你是一位专业的小说编辑和剧情分析师。请深度分析以下章节内容，并严格按指定 JSON Schema 输出。
 
-            **章节信息:**
-            - 章节: 第{chapter_number}章
-            - 标题: {title}
-            - 字数: {word_count}字
+            章节信息：
+            - 章节：第{chapter_number}章
+            - 标题：{title}
+            - 字数：{word_count}字
 
-            **章节内容:**
+            章节内容：
             {content}
 
-            ---
+            ======================
+            分析要求（请务必覆盖）：
+            1) 剧情钩子 Hooks：悬念/情感/冲突/认知，给出强度(1-10)、出现位置(开头/中段/结尾)与关键词（必须从原文逐字复制 8-25 字）
+            2) 伏笔 Foreshadows：本章埋下（planted）与本章回收（resolved）
+            3) 冲突 Conflict：冲突等级(1-10)、类型列表、解决进度(0-100)
+            4) 情感 Emotional：主导情绪、强度(0.0-1.0)、情感曲线（开头/中段/结尾 3 个点）
+            5) 角色 Characters：每个出场角色的心理变化/关系变化/关键行动/成长退步
+            6) 情节点 PlotPoints：3-5 个核心情节点
+            7) 评分 Scores：pacing/engagement/coherence/overall（1-10）
+            8) 建议 Suggestions：3-5 条可执行改进建议
+            9) 报告 AnalysisReport：用 Markdown 汇总，面向作者可直接执行
 
-            **分析任务:**
-            请从专业编辑的角度,全面分析这一章节:
+            ======================
+            输出格式（必须严格遵守）：
+            - 只输出一个 JSON 对象，不要输出任何 Markdown 代码块标记（不要 ``` ）
+            - 不要输出任何额外说明文字
+            - 字段名必须完全一致，缺失字段用 null 或空数组/空对象补齐
 
-            ### 1. 剧情钩子 (Hooks) - 吸引读者的元素
-            识别能够吸引读者继续阅读的关键元素:
-            - **悬念钩子**: 未解之谜、疑问、谜团
-            - **情感钩子**: 引发共鸣的情感点、触动心弦的时刻
-            - **冲突钩子**: 矛盾对抗、紧张局势
-            - **认知钩子**: 颠覆认知的信息、惊人真相
-
-            每个钩子需要:
-            - 类型分类
-            - 具体内容描述
-            - 强度评分(1-10)
-            - 出现位置(开头/中段/结尾)
-            - **关键词**: 从章节原文中逐字复制一段关键文本(8-25字)
-
-            ### 2. 伏笔分析 (Foreshadowing)
-            - **埋下的新伏笔**: 描述内容、预期作用、隐藏程度(1-10)
-            - **回收的旧伏笔**: 呼应哪一章、回收效果评分
-
-            ### 3. 冲突分析 (Conflict)
-            - 冲突类型: 人与人/人与己/人与环境/人与社会
-            - 冲突各方及其立场
-            - 冲突强度评分(1-10)
-            - 冲突解决进度(0-100%)
-
-            ### 4. 情感曲线 (Emotional Arc)
-            - 主导情绪
-            - 情感强度(1-10)
-            - 情绪变化轨迹描述
-
-            ### 5. 角色状态追踪 (Character Development)
-            对每个出场角色分析:
-            - 心理状态变化(前→后)
-            - 关系变化
-            - 关键行动和决策
-            - 成长或退步
-
-            ### 6. 关键情节点 (Plot Points)
-            列出3-5个核心情节点
-
-            ### 7. 质量评分
-            - 节奏把控: 1-10分
-            - 吸引力: 1-10分
-            - 连贯性: 1-10分
-            - 整体质量: 1-10分
-
-            ### 8. 改进建议
-            提供3-5条具体的改进建议
-
-            ---
-
-            **输出格式(纯JSON,不要markdown标记)**
-
-            只返回JSON,不要其他说明。
+            JSON Schema（字段名固定）：
+            {
+              "plotStage": "开端|发展|高潮|结局|null",
+              "conflict": {
+                "level": 1,
+                "types": ["人与人","人与己","人与环境","人与社会"],
+                "resolutionProgress": 0
+              },
+              "emotional": {
+                "tone": "string|null",
+                "intensity": 0.0,
+                "curve": [
+                  {"pos": "开头", "value": 0.0, "desc": "string"},
+                  {"pos": "中段", "value": 0.0, "desc": "string"},
+                  {"pos": "结尾", "value": 0.0, "desc": "string"}
+                ]
+              },
+              "hooks": [
+                {
+                  "type": "悬念|情感|冲突|认知",
+                  "content": "string",
+                  "strength": 1,
+                  "position": "开头|中段|结尾",
+                  "keyword": "string"
+                }
+              ],
+              "foreshadows": {
+                "planted": [{"content": "string", "expectedEffect": "string", "hiddenLevel": 1}],
+                "resolved": [{"content": "string", "refChapterNumber": 1, "effectScore": 1}]
+              },
+              "characters": [
+                {
+                  "name": "string",
+                  "mentalChange": "string",
+                  "relationshipChange": "string",
+                  "actions": "string",
+                  "growth": "string"
+                }
+              ],
+              "plotPoints": ["string"],
+              "scores": {"pacing": 1, "engagement": 1, "coherence": 1, "overall": 1},
+              "suggestions": ["string"],
+              "analysisReport": "string"
+            }
             """;
 
     // ==================== 单个实体生成 ====================

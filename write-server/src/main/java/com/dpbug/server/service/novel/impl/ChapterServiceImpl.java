@@ -77,22 +77,67 @@ public class ChapterServiceImpl implements ChapterService {
 
         NovelProject project = projectService.checkOwnership(userId, outline.getProjectId());
 
+        // 规范化 subIndex（one-to-one 默认 0；one-to-many 从 1 开始）
+        Integer normalizedSubIndex = request.getSubIndex() != null ? request.getSubIndex() : 0;
+        request.setSubIndex(normalizedSubIndex);
+
         // 并发控制：检查是否有正在生成的章节
-        String lockKey = buildLockKey(project.getId(), outline.getId(), request.getSubIndex());
+        String lockKey = buildLockKey(project.getId(), outline.getId(), normalizedSubIndex);
         if (GENERATION_LOCKS.putIfAbsent(lockKey, Boolean.TRUE) != null) {
             throw new BusinessException(ResultCode.BUSINESS_ERROR, "该章节正在生成中，请稍后再试");
         }
 
         NovelChapter chapter = null;
+        boolean reuseExisting = false;
+        Integer chapterNumber = null;
         try {
-            // 计算章节号
-            Integer chapterNumber = calculateChapterNumber(project.getId(), outline, request.getSubIndex());
+            // one-to-many：优先复用“展开(apply)后已创建的待生成章节记录”，避免重复建章
+            if (normalizedSubIndex > 0) {
+                NovelChapter existing = chapterMapper.selectLatestByOutlineSubIndex(
+                        project.getId(), outline.getId(), normalizedSubIndex);
+                if (existing != null) {
+                    String generationStatus = existing.getGenerationStatus();
+                    if (NovelConstants.GenerationStatus.GENERATING.equals(generationStatus)) {
+                        throw new BusinessException(ResultCode.BUSINESS_ERROR, "该章节正在生成中，请稍后再试");
+                    }
+                    if (NovelConstants.GenerationStatus.COMPLETED.equals(generationStatus)) {
+                        throw new BusinessException(ResultCode.BUSINESS_ERROR, "该章节已生成完成，如需重写请使用“重新生成”功能");
+                    }
 
-            // 创建章节记录(状态:generating)
-            chapter = createChapterRecord(project, outline, chapterNumber, request);
+                    // 更新为 generating，并同步本次生成参数（不改 chapterNumber/title/subIndex/expansionPlan）
+                    NovelChapter update = new NovelChapter();
+                    update.setId(existing.getId());
+                    update.setGenerationStatus(NovelConstants.GenerationStatus.GENERATING);
+                    update.setStyleCode(request.getStyleCode() != null ? request.getStyleCode() : existing.getStyleCode());
+
+                    Map<String, Object> params = new HashMap<>();
+                    params.put("temperature", request.getTemperature() != null ? request.getTemperature() : 0.7);
+                    params.put("topP", request.getTopP() != null ? request.getTopP() : 0.9);
+                    params.put("targetWordCount", request.getTargetWordCount() != null ?
+                            request.getTargetWordCount() : NovelConstants.ChapterConfig.DEFAULT_WORD_COUNT);
+                    update.setGenerationParams(params);
+
+                    chapterMapper.updateById(update);
+
+                    chapter = existing;
+                    chapterNumber = existing.getChapterNumber();
+                    reuseExisting = true;
+                    log.info("复用已展开章节记录并开始生成: chapterId={}, chapterNumber={}, outlineId={}, subIndex={}",
+                            chapter.getId(), chapterNumber, outline.getId(), normalizedSubIndex);
+                }
+            }
+
+            // one-to-one 或未找到可复用记录：创建新章节记录(状态:generating)
+            if (chapter == null) {
+                // 计算章节号
+                chapterNumber = calculateChapterNumber(project.getId(), outline, normalizedSubIndex);
+                chapter = createChapterRecord(project, outline, chapterNumber, request);
+            }
             final Long chapterId = chapter.getId();
+            final Integer finalChapterNumber = chapterNumber;
+            final boolean finalReuseExisting = reuseExisting;
 
-            ChapterContextVO context = contextBuilder.buildContext(userId, project, outline, chapterNumber, request);
+            ChapterContextVO context = contextBuilder.buildContext(userId, project, outline, finalChapterNumber, request);
 
             String systemPrompt = buildSystemPrompt(context, request);
             String userPrompt = buildUserPrompt(context, request);
@@ -114,7 +159,7 @@ public class ChapterServiceImpl implements ChapterService {
 
                             // 通过异步服务提取记忆和生成摘要
                             chapterAsyncService.asyncExtractMemories(userId, project.getId(), chapterId,
-                                    chapterNumber, fullContent.get());
+                                    finalChapterNumber, fullContent.get());
                             chapterAsyncService.asyncGenerateSummary(chapterId, fullContent.get());
 
                             // 更新项目统计
@@ -127,22 +172,37 @@ public class ChapterServiceImpl implements ChapterService {
                     .doOnError(error -> {
                         // 释放锁
                         GENERATION_LOCKS.remove(lockKey);
-                        // 删除已创建的章节记录（因为生成失败了）
-                        chapterMapper.deleteById(chapterId);
-                        log.error("章节生成失败，已删除章节记录: chapterId={}", chapterId, error);
+                        if (finalReuseExisting) {
+                            updateChapterStatus(chapterId, NovelConstants.GenerationStatus.FAILED);
+                            log.error("章节生成失败，已标记章节为FAILED: chapterId={}", chapterId, error);
+                        } else {
+                            // 删除已创建的章节记录（因为生成失败了）
+                            chapterMapper.deleteById(chapterId);
+                            log.error("章节生成失败，已删除章节记录: chapterId={}", chapterId, error);
+                        }
                     })
                     .doOnCancel(() -> {
-                        // 取消时也释放锁，并删除未完成的章节记录
+                        // 取消时也释放锁，并处理未完成的章节记录
                         GENERATION_LOCKS.remove(lockKey);
-                        chapterMapper.deleteById(chapterId);
-                        log.info("章节生成被取消，已删除章节记录: chapterId={}", chapterId);
+                        if (finalReuseExisting) {
+                            updateChapterStatus(chapterId, NovelConstants.GenerationStatus.FAILED);
+                            log.info("章节生成被取消，已标记章节为FAILED: chapterId={}", chapterId);
+                        } else {
+                            chapterMapper.deleteById(chapterId);
+                            log.info("章节生成被取消，已删除章节记录: chapterId={}", chapterId);
+                        }
                     });
         } catch (Exception e) {
             // 异常时释放锁，并删除已创建的章节记录
             GENERATION_LOCKS.remove(lockKey);
             if (chapter != null) {
-                chapterMapper.deleteById(chapter.getId());
-                log.warn("章节生成准备阶段异常，已删除章节记录: chapterId={}", chapter.getId());
+                if (reuseExisting) {
+                    updateChapterStatus(chapter.getId(), NovelConstants.GenerationStatus.FAILED);
+                    log.warn("章节生成准备阶段异常，已标记章节为FAILED: chapterId={}", chapter.getId());
+                } else {
+                    chapterMapper.deleteById(chapter.getId());
+                    log.warn("章节生成准备阶段异常，已删除章节记录: chapterId={}", chapter.getId());
+                }
             }
             throw e;
         }

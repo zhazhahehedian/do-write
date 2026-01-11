@@ -20,6 +20,7 @@ import com.dpbug.server.model.entity.novel.NovelCharacter;
 import com.dpbug.server.model.entity.novel.NovelOutline;
 import com.dpbug.server.model.entity.novel.NovelProject;
 import com.dpbug.server.model.entity.novel.NovelStoryMemory;
+import com.dpbug.server.model.vo.novel.ProjectChapterCountVO;
 import com.dpbug.server.model.vo.novel.ProjectListVO;
 import com.dpbug.server.model.vo.novel.ProjectStatisticsVO;
 import com.dpbug.server.model.vo.novel.ProjectVO;
@@ -31,7 +32,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 项目服务实现类
@@ -190,9 +193,22 @@ public class ProjectServiceImpl implements ProjectService {
         Page<NovelProject> page = new Page<>(query.getPageNum(), query.getPageSize());
         Page<NovelProject> result = projectMapper.selectPage(page, wrapper);
 
+        // 批量统计项目已生成章节数（避免 N+1）
+        Map<Long, Integer> actualChapterCountMap = new HashMap<>();
+        List<Long> projectIds = result.getRecords().stream().map(NovelProject::getId).toList();
+        if (!projectIds.isEmpty()) {
+            List<ProjectChapterCountVO> chapterCounts = chapterMapper.selectChapterCountsByProjectIds(projectIds);
+            for (ProjectChapterCountVO row : chapterCounts) {
+                if (row.getProjectId() == null) {
+                    continue;
+                }
+                actualChapterCountMap.put(row.getProjectId(), row.getChapterCount() != null ? row.getChapterCount() : 0);
+            }
+        }
+
         // 转换为VO
         List<ProjectListVO> voList = result.getRecords().stream()
-                .map(this::convertToListVO)
+                .map(project -> convertToListVO(project, actualChapterCountMap.getOrDefault(project.getId(), 0)))
                 .toList();
 
         return PageResult.of(
@@ -259,9 +275,11 @@ public class ProjectServiceImpl implements ProjectService {
     /**
      * 转换为列表VO
      */
-    private ProjectListVO convertToListVO(NovelProject project) {
+    private ProjectListVO convertToListVO(NovelProject project, Integer actualChapterCount) {
         ProjectListVO vo = new ProjectListVO();
         BeanUtils.copyProperties(project, vo);
+
+        vo.setActualChapterCount(actualChapterCount != null ? actualChapterCount : 0);
 
         // 计算进度百分比
         if (project.getTargetWords() != null && project.getTargetWords() > 0) {

@@ -1,5 +1,5 @@
 import { request } from './client'
-import type { Project, ProjectCreateRequest, ProjectUpdateRequest } from '@/lib/types/project'
+import type { Project, ProjectCreateRequest, ProjectListVO, ProjectUpdateRequest } from '@/lib/types/project'
 import type { PageResult, PageRequest } from '@/lib/types/api'
 import type { ProjectStatistics } from '@/lib/types/project'
 
@@ -38,7 +38,7 @@ export const projectApi = {
 
   // 获取项目列表
   list: (params: PageRequest & { status?: string }) =>
-    request<PageResult<Project>>({
+    request<PageResult<ProjectListVO>>({
       method: 'GET',
       url: '/novel/project/list',
       params,

@@ -6,14 +6,19 @@ import com.dpbug.common.enums.ResultCode;
 import com.dpbug.common.exception.BusinessException;
 import com.dpbug.server.ai.ChatClientFactory;
 import com.dpbug.server.mapper.novel.ChapterMapper;
+import com.dpbug.server.mapper.novel.GenerationTaskMapper;
+import com.dpbug.server.model.dto.novel.ExpandedChaptersGenerateRequest;
 import com.dpbug.server.model.dto.novel.OutlineExpandApplyRequest;
 import com.dpbug.server.model.dto.novel.OutlineExpandRequest;
 import com.dpbug.server.model.entity.novel.NovelChapter;
+import com.dpbug.server.model.entity.novel.NovelGenerationTask;
 import com.dpbug.server.model.entity.novel.NovelProject;
 import com.dpbug.server.model.vo.novel.CharacterVO;
 import com.dpbug.server.model.vo.novel.ChapterVO;
+import com.dpbug.server.model.vo.novel.GenerationTaskVO;
 import com.dpbug.server.model.vo.novel.OutlineVO;
 import com.dpbug.server.service.novel.CharacterService;
+import com.dpbug.server.service.novel.GenerationTaskService;
 import com.dpbug.server.service.novel.OutlineService;
 import com.dpbug.server.service.novel.PlotExpansionService;
 import com.dpbug.server.service.novel.ProjectService;
@@ -53,6 +58,9 @@ public class PlotExpansionServiceImpl implements PlotExpansionService {
     private final ChatClientFactory chatClientFactory;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
+    private final GenerationTaskService taskService;
+    private final GenerationTaskMapper taskMapper;
+    private final ExpandedChaptersTaskRunner expandedChaptersTaskRunner;
 
     /**
      * 展开锁前缀
@@ -230,6 +238,50 @@ public class PlotExpansionServiceImpl implements PlotExpansionService {
         LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(NovelChapter::getOutlineId, outlineId);
         return chapterMapper.selectCount(wrapper) > 0;
+    }
+
+    @Override
+    public GenerationTaskVO generateExpandedChaptersAsync(Long userId, Long outlineId, ExpandedChaptersGenerateRequest request) {
+        // 获取大纲并检查权限
+        OutlineVO outline = outlineService.getById(userId, outlineId);
+        NovelProject project = projectService.checkOwnership(userId, outline.getProjectId());
+
+        // 仅生成 subIndex>0 且 pending/failed 的已展开子章节
+        LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(NovelChapter::getOutlineId, outlineId)
+                .gt(NovelChapter::getSubIndex, 0)
+                .in(NovelChapter::getGenerationStatus,
+                        NovelConstants.GenerationStatus.PENDING,
+                        NovelConstants.GenerationStatus.FAILED)
+                .orderByAsc(NovelChapter::getSubIndex);
+        List<NovelChapter> chapters = chapterMapper.selectList(wrapper);
+
+        if (chapters.isEmpty()) {
+            throw new BusinessException(ResultCode.BUSINESS_ERROR, "没有可生成的子章节（请先展开并应用，或检查是否都已生成完成）");
+        }
+
+        List<Long> chapterIds = chapters.stream().map(NovelChapter::getId).toList();
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("outlineId", outlineId);
+        params.put("mode", "outline_expand_one_to_many");
+        params.put("styleCode", request.getStyleCode());
+        params.put("targetWordCount", request.getTargetWordCount());
+        params.put("narrativePerspective", request.getNarrativePerspective());
+        params.put("customRequirements", request.getCustomRequirements());
+        params.put("temperature", request.getTemperature());
+        params.put("topP", request.getTopP());
+        params.put("enableMemoryRetrieval", request.getEnableMemoryRetrieval());
+
+        NovelGenerationTask task = taskService.createTask(userId, project.getId(),
+                NovelConstants.TaskType.BATCH_CHAPTER, params);
+        task.setChapterIds(chapterIds);
+        taskMapper.updateById(task);
+
+        // 异步执行
+        expandedChaptersTaskRunner.run(userId, task.getId(), project.getId(), outlineId, chapterIds, request);
+
+        return taskService.getTask(userId, task.getId());
     }
 
     @Override
@@ -446,7 +498,7 @@ public class PlotExpansionServiceImpl implements PlotExpansionService {
         try {
             Map<String, Object> data = new HashMap<>();
             data.put("type", "error");
-            data.put("message", errorMessage);
+            data.put("error", errorMessage);
             sink.tryEmitNext(objectMapper.writeValueAsString(data));
             sink.tryEmitComplete();
         } catch (JsonProcessingException e) {

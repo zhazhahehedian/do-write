@@ -2,6 +2,7 @@ package com.dpbug.server.mapper.novel;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.dpbug.server.model.entity.novel.NovelChapter;
+import com.dpbug.server.model.vo.novel.ProjectChapterCountVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -64,5 +65,19 @@ public interface ChapterMapper extends BaseMapper<NovelChapter> {
      * @param projectId 项目ID
      * @return 统计结果 {chapterCount, totalWords}
      */
+    NovelChapter selectLatestByOutlineSubIndex(
+            @Param("projectId") Long projectId,
+            @Param("outlineId") Long outlineId,
+            @Param("subIndex") Integer subIndex
+    );
+
     Map<String, Object> selectProjectStatistics(@Param("projectId") Long projectId);
+
+    /**
+     * 批量统计项目已生成章节数（generation_status = completed）
+     *
+     * @param projectIds 项目ID列表
+     * @return 统计结果
+     */
+    List<ProjectChapterCountVO> selectChapterCountsByProjectIds(@Param("projectIds") List<Long> projectIds);
 }

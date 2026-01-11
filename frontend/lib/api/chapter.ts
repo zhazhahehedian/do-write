@@ -137,4 +137,11 @@ export const chapterApi = {
       method: 'GET',
       url: `/novel/chapter/task/${taskId}`,
     }),
+
+  // 取消任务
+  cancelTask: (taskId: string) =>
+    request<void>({
+      method: 'POST',
+      url: `/novel/chapter/task/cancel/${taskId}`,
+    }),
 }

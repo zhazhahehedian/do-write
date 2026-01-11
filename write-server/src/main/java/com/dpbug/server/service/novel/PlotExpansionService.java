@@ -2,7 +2,9 @@ package com.dpbug.server.service.novel;
 
 import com.dpbug.server.model.dto.novel.OutlineExpandApplyRequest;
 import com.dpbug.server.model.dto.novel.OutlineExpandRequest;
+import com.dpbug.server.model.dto.novel.ExpandedChaptersGenerateRequest;
 import com.dpbug.server.model.vo.novel.ChapterVO;
+import com.dpbug.server.model.vo.novel.GenerationTaskVO;
 import reactor.core.publisher.Flux;
 
 import java.util.List;
@@ -54,6 +56,16 @@ public interface PlotExpansionService {
      * @return 是否已展开
      */
     boolean isExpanded(Long outlineId);
+
+    /**
+     * 一纲多章：批量生成已展开子章节（后台任务）
+     *
+     * @param userId  用户ID
+     * @param outlineId 大纲ID
+     * @param request 生成参数
+     * @return 任务信息
+     */
+    GenerationTaskVO generateExpandedChaptersAsync(Long userId, Long outlineId, ExpandedChaptersGenerateRequest request);
 
     /**
      * 删除大纲的展开章节（重新展开前的清理）

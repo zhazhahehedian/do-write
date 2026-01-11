@@ -3,7 +3,7 @@
 import type { Outline } from '@/lib/types/outline'
 import type { OutlineMode } from '@/lib/types/project'
 import { Button } from '@/components/ui/button'
-import { Plus, List, Loader2, MoreVertical, Pencil, Trash2, FileText, Layers } from 'lucide-react'
+import { Plus, List, Loader2, MoreVertical, Pencil, Trash2, FileText, Layers, Sparkles } from 'lucide-react'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ interface OutlineListProps {
   onDelete?: (id: string) => void
   onGenerateChapter?: (outline: Outline) => void
   onExpandOutline?: (outline: Outline) => void
+  onGenerateExpandedChapters?: (outline: Outline) => void
 }
 
 export function OutlineList({
@@ -34,6 +35,7 @@ export function OutlineList({
   onDelete,
   onGenerateChapter,
   onExpandOutline,
+  onGenerateExpandedChapters,
 }: OutlineListProps) {
   const isOneToMany = outlineMode === 'one-to-many'
 
@@ -119,10 +121,16 @@ export function OutlineList({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {isOneToMany ? (
-                      <DropdownMenuItem onClick={() => onExpandOutline?.(outline)}>
-                        <Layers className="mr-2 h-4 w-4" />
-                        展开为多章
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => onExpandOutline?.(outline)}>
+                          <Layers className="mr-2 h-4 w-4" />
+                          展开为多章
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onGenerateExpandedChapters?.(outline)}>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          一键生成子章节正文
+                        </DropdownMenuItem>
+                      </>
                     ) : (
                       <DropdownMenuItem onClick={() => onGenerateChapter?.(outline)}>
                         <FileText className="mr-2 h-4 w-4" />

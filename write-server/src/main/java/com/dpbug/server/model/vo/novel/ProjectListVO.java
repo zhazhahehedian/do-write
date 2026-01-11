@@ -61,6 +61,21 @@ public class ProjectListVO implements Serializable {
     private Integer currentWords;
 
     /**
+     * 计划章节数（项目配置）
+     */
+    private Integer chapterCount;
+
+    /**
+     * 角色数量（统计字段，通常为实际数量）
+     */
+    private Integer characterCount;
+
+    /**
+     * 实际章节数（统计字段）
+     */
+    private Integer actualChapterCount;
+
+    /**
      * 向导状态
      */
     private String wizardStatus;

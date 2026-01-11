@@ -16,8 +16,11 @@
         UPDATE novel_generation_task
         SET progress     = #{progress},
             current_step = #{currentStep},
+            status       = CASE WHEN status = 'pending' THEN 'running' ELSE status END,
+            started_at   = CASE WHEN started_at IS NULL THEN NOW() ELSE started_at END,
             update_time  = NOW()
         WHERE id = #{taskId}
+          AND status IN ('pending', 'running')
     </update>
 
 </mapper>

@@ -1,6 +1,7 @@
 import { request } from './client'
 import type { Outline, OutlineExpandApplyRequest } from '@/lib/types/outline'
 import type { Chapter } from '@/lib/types/chapter'
+import type { GenerationTask } from '@/lib/types/wizard'
 
 export const outlineApi = {
   list: (projectId: string) =>
@@ -73,5 +74,26 @@ export const outlineApi = {
     request<void>({
       method: 'POST',
       url: `/novel/outline/${outlineId}/expand/reset`,
+    }),
+
+  /**
+   * 一纲多章：批量生成已展开的子章节（后台任务）
+   */
+  generateExpandedChaptersAsync: (
+    outlineId: string,
+    data?: {
+      styleCode?: string
+      targetWordCount?: number
+      narrativePerspective?: string
+      customRequirements?: string
+      temperature?: number
+      topP?: number
+      enableMemoryRetrieval?: boolean
+    }
+  ) =>
+    request<GenerationTask>({
+      method: 'POST',
+      url: `/novel/outline/${outlineId}/expand/generate/async`,
+      data: data ?? {},
     }),
 }

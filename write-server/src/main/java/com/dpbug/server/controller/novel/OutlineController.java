@@ -2,9 +2,14 @@ package com.dpbug.server.controller.novel;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.dpbug.common.domain.Result;
+import com.dpbug.server.model.dto.novel.OutlineCreateRequest;
+import com.dpbug.server.model.dto.novel.ExpandedChaptersGenerateRequest;
 import com.dpbug.server.model.dto.novel.OutlineExpandApplyRequest;
 import com.dpbug.server.model.dto.novel.OutlineExpandRequest;
+import com.dpbug.server.model.dto.novel.OutlineUpdateRequest;
+import com.dpbug.server.model.entity.novel.NovelOutline;
 import com.dpbug.server.model.vo.novel.ChapterVO;
+import com.dpbug.server.model.vo.novel.GenerationTaskVO;
 import com.dpbug.server.model.vo.novel.OutlineVO;
 import com.dpbug.server.service.novel.OutlineService;
 import com.dpbug.server.service.novel.PlotExpansionService;
@@ -50,6 +55,24 @@ public class OutlineController {
     }
 
     /**
+     * 创建大纲
+     */
+    @PostMapping("/create")
+    public Result<OutlineVO> create(@RequestBody @Valid OutlineCreateRequest request) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        NovelOutline outline = new NovelOutline();
+        outline.setOrderIndex(request.getOrderIndex());
+        outline.setTitle(request.getTitle());
+        outline.setContent(request.getContent());
+        outline.setStructure(request.getStructure());
+
+        outlineService.createBatch(userId, request.getProjectId(), List.of(outline));
+        OutlineVO created = outlineService.getById(userId, outline.getId());
+        return Result.success(created);
+    }
+
+    /**
      * 获取大纲详情
      */
     @GetMapping("/{id}")
@@ -57,6 +80,27 @@ public class OutlineController {
         Long userId = StpUtil.getLoginIdAsLong();
         OutlineVO outline = outlineService.getById(userId, id);
         return Result.success(outline);
+    }
+
+    /**
+     * 更新大纲
+     */
+    @PostMapping("/{id}/update")
+    public Result<OutlineVO> update(
+            @PathVariable Long id,
+            @RequestBody @Valid OutlineUpdateRequest request) {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        NovelOutline outline = new NovelOutline();
+        outline.setId(id);
+        outline.setOrderIndex(request.getOrderIndex());
+        outline.setTitle(request.getTitle());
+        outline.setContent(request.getContent());
+        outline.setStructure(request.getStructure());
+
+        outlineService.update(userId, outline);
+        OutlineVO updated = outlineService.getById(userId, id);
+        return Result.success(updated);
     }
 
     /**
@@ -116,6 +160,18 @@ public class OutlineController {
     }
 
     /**
+     * 一纲多章：批量生成已展开的子章节（后台任务）
+     */
+    @PostMapping("/{outlineId}/expand/generate/async")
+    public Result<GenerationTaskVO> generateExpandedChaptersAsync(
+            @PathVariable Long outlineId,
+            @RequestBody @Valid ExpandedChaptersGenerateRequest request) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        GenerationTaskVO task = plotExpansionService.generateExpandedChaptersAsync(userId, outlineId, request);
+        return Result.success(task);
+    }
+
+    /**
      * 获取大纲已展开的子章节列表
      */
     @GetMapping("/{outlineId}/chapters")
@@ -130,6 +186,9 @@ public class OutlineController {
      */
     @GetMapping("/{outlineId}/expanded")
     public Result<Boolean> isExpanded(@PathVariable Long outlineId) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        // 权限校验：避免通过 outlineId 探测他人项目数据
+        outlineService.getById(userId, outlineId);
         boolean expanded = plotExpansionService.isExpanded(outlineId);
         return Result.success(expanded);
     }

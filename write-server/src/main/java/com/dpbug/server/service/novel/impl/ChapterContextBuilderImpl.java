@@ -96,17 +96,15 @@ public class ChapterContextBuilderImpl implements ChapterContextBuilder {
         if (outlineId == null) {
             return;
         }
+        // one-to-many 才需要子章节规划；one-to-one(subIndex=0/空) 不加载，避免误用
+        if (subIndex == null || subIndex <= 0) {
+            return;
+        }
 
         // 查询该大纲下的章节，优先按 subIndex 匹配
         LambdaQueryWrapper<NovelChapter> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(NovelChapter::getOutlineId, outlineId);
-        if (subIndex != null && subIndex > 0) {
-            wrapper.eq(NovelChapter::getSubIndex, subIndex);
-        } else {
-            // 没有指定 subIndex，取第一个
-            wrapper.orderByAsc(NovelChapter::getSubIndex);
-            wrapper.last("LIMIT 1");
-        }
+        wrapper.eq(NovelChapter::getSubIndex, subIndex);
 
         List<NovelChapter> chapters = chapterMapper.selectList(wrapper);
         if (!chapters.isEmpty()) {
