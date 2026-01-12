@@ -60,7 +60,7 @@ export function ProjectCard({ project, onDelete }: ProjectCardProps) {
                 {project.title}
               </Link>
             </CardTitle>
-            <CardDescription className="line-clamp-2">
+            <CardDescription className="line-clamp-2 min-h-[2.5rem]">
               {project.description || '暂无描述'}
             </CardDescription>
           </div>
