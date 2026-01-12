@@ -84,23 +84,7 @@ CREATE TABLE `user_oauth` (
     KEY `idx_is_deleted` (`is_deleted`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='第三方登录绑定表';
 
--- 用户会话表（可选，用于JWT令牌管理和多设备登录）
-CREATE TABLE `user_session` (
-    `id` VARCHAR(64) NOT NULL COMMENT '会话ID (UUID)',
-    `user_id` BIGINT NOT NULL COMMENT '用户ID',
-    `token` VARCHAR(500) NOT NULL COMMENT 'JWT Token',
-    `login_type` VARCHAR(20) COMMENT '登录方式：PASSWORD, LINUXDO, FISHPI, GITHUB等',
-    `login_ip` VARCHAR(50) COMMENT '登录IP',
-    `user_agent` VARCHAR(500) COMMENT '用户代理',
-    `device_type` VARCHAR(20) COMMENT '设备类型：WEB, MOBILE, APP',
-    `expires_at` DATETIME NOT NULL COMMENT '过期时间',
-    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-
-    PRIMARY KEY (`id`),
-    KEY `idx_user_id` (`user_id`),
-    KEY `idx_token` (`token`(255)),
-    KEY `idx_expires_at` (`expires_at`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户会话表';
+-- 注意：会话管理由 sa-token + Redis 处理，无需 user_session 表
 
 -- 用户API配置表
 CREATE TABLE `user_api_config` (

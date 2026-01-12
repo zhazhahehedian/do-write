@@ -137,8 +137,8 @@ const NarrativeLoop = () => {
 
 export const HeroSection = React.memo(function HeroSection({ className }: HeroSectionProps) {
   return (
-    <section className={cn("w-full relative z-10", className)}>
-      <div className="container mx-auto max-w-7xl grid lg:grid-cols-2 gap-12 lg:gap-20 items-center h-screen px-6">
+    <section className={cn("w-full relative z-10 flex-1", className)}>
+      <div className="container mx-auto max-w-7xl grid lg:grid-cols-2 gap-12 lg:gap-20 items-center min-h-0 h-full px-6">
 
         <div className="max-w-3xl pt-20 lg:pt-0">
           <motion.h1
