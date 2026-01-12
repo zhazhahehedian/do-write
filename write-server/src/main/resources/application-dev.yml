@@ -5,7 +5,7 @@ MYSQL_HOST: localhost
 MYSQL_PORT: 3306
 MYSQL_DATABASE: do_write
 MYSQL_USERNAME: root
-MYSQL_PASSWORD: root
+MYSQL_PASSWORD: root123456Aa
 
 # Redis 配置
 REDIS_HOST: localhost
@@ -15,13 +15,19 @@ REDIS_DATABASE: 0
 
 # ChromaDB 配置
 CHROMA_HOST: http://localhost
-CHROMA_PORT: 8000
+CHROMA_PORT: 8800
 
 # OAuth 配置（可选，不用可保持默认值）
-LINUXDO_CLIENT_ID: your-dev-client-id
-LINUXDO_CLIENT_SECRET: your-dev-client-secret
+LINUXDO_CLIENT_ID: Aq3mVrc5SEszqc9mJkAs50VKh9COnlWz
+LINUXDO_CLIENT_SECRET: NwayNAUjCbsHEjT82atzaxYDrtwQgBi2
 # FishPi 使用 OpenID 2.0 协议，无需 client_id/secret
 APP_BASE_URL: http://localhost:3000
+
+# ========== 代理配置（用于访问被墙服务）==========
+proxy:
+  enabled: true
+  host: 127.0.0.1
+  port: 7897
 
 # ========== 服务配置 ==========
 server:
