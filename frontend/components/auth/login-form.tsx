@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,20 +23,6 @@ import { useAuthStore } from '@/lib/store/auth-store'
 import { toast } from 'sonner'
 import { Loader2, User, Lock } from 'lucide-react'
 import type { OAuthProvider } from '@/lib/types/auth'
-
-// Linux.do Logo SVG
-const LinuxDoIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" fill="currentColor">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-  </svg>
-)
-
-// FishPi Logo SVG
-const FishPiIcon = () => (
-  <svg viewBox="0 0 24 24" className="h-4 w-4 mr-2" fill="currentColor">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM8.65 14.35a.5.5 0 01-.7-.7l4-4a.5.5 0 01.7 0l4 4a.5.5 0 01-.7.7L12 10.41l-3.35 3.94z"/>
-  </svg>
-)
 
 const loginSchema = z.object({
   username: z.string().min(1, '请输入用户名'),
@@ -181,7 +168,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
           {oauthLoading === 'linuxdo' ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <LinuxDoIcon />
+            <Image src="/oauth/linuxdo.png" alt="Linux DO" width={18} height={18} className="mr-2" />
           )}
           使用 Linux DO 登录
         </Button>
@@ -195,7 +182,7 @@ export function LoginForm({ className, ...props }: React.ComponentProps<"div">) 
           {oauthLoading === 'fishpi' ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <FishPiIcon />
+            <Image src="/oauth/fishpi.png" alt="摸鱼派" width={18} height={18} className="mr-2" />
           )}
           使用摸鱼派登录
         </Button>
