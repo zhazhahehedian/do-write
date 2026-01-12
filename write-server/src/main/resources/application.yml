@@ -7,7 +7,7 @@ spring:
 
   # 配置文件
   profiles:
-    active: dev
+    active: ${SPRING_PROFILES_ACTIVE:dev}
 
   # Jackson 配置
   jackson:
@@ -187,15 +187,18 @@ oauth:
       authorize-url: https://connect.linux.do/oauth2/authorize
       token-url: https://connect.linux.do/oauth2/token
       user-info-url: https://connect.linux.do/api/user
-      redirect-uri: ${APP_BASE_URL:http://localhost:8080}/api/oauth/linuxdo/callback
+      redirect-uri: ${APP_BASE_URL:http://localhost:3000}/api/oauth/linuxdo/callback
 
     fishpi:
-      client-id: ${FISHPI_CLIENT_ID:your-client-id}
-      client-secret: ${FISHPI_CLIENT_SECRET:your-client-secret}
-      authorize-url: https://fishpi.cn/oauth/authorize
-      token-url: https://fishpi.cn/oauth/token
-      user-info-url: https://fishpi.cn/api/user
-      redirect-uri: ${APP_BASE_URL:http://localhost:8080}/api/oauth/fishpi/callback
+      # FishPi 使用 OpenID 2.0 协议，无需 client_id/secret
+      # 参考文档: docs/fishpi oauth.md
+      type: openid
+      login-url: https://fishpi.cn/openid/login
+      verify-url: https://fishpi.cn/openid/verify
+      user-info-url: https://fishpi.cn/api/user/getInfoById
+      return-to: ${APP_BASE_URL:http://localhost:3000}/api/oauth/fishpi/callback
+      realm: ${APP_BASE_URL:http://localhost:3000}
+      nonce-expiration: 300  # OpenID nonce 有效期（秒），摸鱼派规定为 5 分钟
 
 # 日志配置
 logging:

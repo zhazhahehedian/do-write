@@ -1,0 +1,14 @@
+# 通用
+.git
+.idea
+.vscode
+.claude
+logs
+**/target
+
+# 前端
+frontend/node_modules
+frontend/.next
+
+# 本地私有配置
+.env

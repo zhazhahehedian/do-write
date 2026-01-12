@@ -35,8 +35,16 @@ build/
 ### 系统日志 ###
 logs
 
+### 本地私有配置 ###
+.env
+
+### SSL 证书（不提交到仓库）###
+docker/nginx/ssl/*.crt
+docker/nginx/ssl/*.key
+docker/nginx/ssl/*.pem
+!docker/nginx/ssl/README.md
+
 ### 暂时屏蔽 后续删除 ###
 learn1
 credit-master
-
 
