@@ -57,26 +57,34 @@ import { toast } from 'sonner'
 const apiTypeValues = ['OPENAI', 'AZURE_OPENAI', 'OLLAMA', 'CUSTOM'] as const
 type ApiType = (typeof apiTypeValues)[number]
 
-const optionalUrl = z.preprocess(
-  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-  z.string().trim().url('请输入有效的 URL').optional()
-)
-
 const configSchema = z.object({
-  configName: z.string().trim().min(1, '请输入配置名称'),
-  apiType: z.enum(apiTypeValues, { required_error: '请选择提供商' }),
-  baseUrl: optionalUrl,
-  apiKey: z.string().trim().min(1, '请输入 API Key'),
-  modelName: z.string().trim().min(1, '请输入模型名称'),
-}).superRefine((values, ctx) => {
+  configName: z.string().min(1, '请输入配置名称'),
+  apiType: z.enum(apiTypeValues, { message: '请选择提供商' }),
+  baseUrl: z.string().optional(),
+  apiKey: z.string().min(1, '请输入 API Key'),
+  modelName: z.string().min(1, '请输入模型名称'),
+}).refine((values) => {
   const baseUrlRequired = values.apiType === 'AZURE_OPENAI' || values.apiType === 'CUSTOM'
-  if (baseUrlRequired && !values.baseUrl) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      path: ['baseUrl'],
-      message: '该提供商需要填写 Base URL',
-    })
+  if (baseUrlRequired && (!values.baseUrl || values.baseUrl.trim() === '')) {
+    return false
   }
+  return true
+}, {
+  message: '该提供商需要填写 Base URL',
+  path: ['baseUrl'],
+}).refine((values) => {
+  if (values.baseUrl && values.baseUrl.trim() !== '') {
+    try {
+      new URL(values.baseUrl)
+      return true
+    } catch {
+      return false
+    }
+  }
+  return true
+}, {
+  message: '请输入有效的 URL',
+  path: ['baseUrl'],
 })
 
 type ConfigFormValues = z.infer<typeof configSchema>

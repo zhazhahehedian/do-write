@@ -28,17 +28,17 @@ export interface WizardProgress {
   outlineCount: number
 }
 
-// 生成任务状态
+// 向导专用任务类型 (扩展 chapter 中的 TaskType)
+export type WizardTaskType = 'characters' | 'outlines'
+
+// 向导专用的任务状态
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
-// 生成任务类型
-export type TaskType = 'single_chapter' | 'batch_chapter' | 'analysis' | 'characters' | 'outlines'
-
-// 生成任务信息 - 对应 GenerationTaskVO
+// 向导生成任务信息 - 对应 GenerationTaskVO (向导专用版本)
 export interface GenerationTask {
   id: string
   projectId: string
-  taskType: TaskType
+  taskType: WizardTaskType | 'single_chapter' | 'batch_chapter' | 'analysis'
   status: TaskStatus
   progress: number
   currentStep: string
