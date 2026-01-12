@@ -33,6 +33,11 @@ public class UserOauth extends BaseEntity {
     private String oauthUserName;
 
     /**
+     * 第三方平台昵称
+     */
+    private String oauthNickname;
+
+    /**
      * 第三方头像
      */
     private String oauthAvatar;
@@ -41,6 +46,11 @@ public class UserOauth extends BaseEntity {
      * 第三方平台邮箱
      */
     private String oauthEmail;
+
+    /**
+     * 信任等级（Linux.do 特有）
+     */
+    private Integer trustLevel;
 
     /**
      * 令牌

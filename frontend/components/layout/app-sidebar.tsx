@@ -180,8 +180,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   <span className="text-base font-semibold truncate mt-2">
                     {user?.username || "Guest User"}
                   </span>
-                  <span className="text-xs font-base text-muted-foreground">
-                    {user?.email || "No Email"}
+                  <span className="text-xs font-base text-muted-foreground max-w-[200px] truncate">
+                    {user?.email
+                      ? (user.email.length > 25
+                          ? `${user.email.substring(0, 12)}...${user.email.substring(user.email.lastIndexOf('@'))}`
+                          : user.email)
+                      : "No Email"}
                   </span>
                 </div>
               </DropdownMenuLabel>

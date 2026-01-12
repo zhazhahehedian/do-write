@@ -54,13 +54,17 @@ CREATE TABLE `user_oauth` (
     -- 第三方平台信息
     `oauth_type` VARCHAR(20) NOT NULL COMMENT '第三方类型：LINUXDO, FISHPI, GITHUB, WECHAT, QQ',
     `oauth_id` VARCHAR(100) NOT NULL COMMENT '第三方平台用户唯一标识',
-    `oauth_username` VARCHAR(100) COMMENT '第三方平台用户名',
+    `oauth_user_name` VARCHAR(100) COMMENT '第三方平台用户名',
+    `oauth_nickname` VARCHAR(100) COMMENT '第三方平台昵称',
     `oauth_avatar` VARCHAR(500) COMMENT '第三方平台头像',
     `oauth_email` VARCHAR(100) COMMENT '第三方平台邮箱',
 
+    -- Linux.do 特有字段
+    `trust_level` TINYINT COMMENT '信任等级（Linux.do特有）：0-4',
+
     -- OAuth 令牌（可选，用于后续API调用）
-    `access_token` VARCHAR(500) COMMENT '访问令牌（AES-256加密存储）',
-    `refresh_token` VARCHAR(500) COMMENT '刷新令牌（AES-256加密存储）',
+    `access_token` TEXT COMMENT '访问令牌（AES-256加密存储）',
+    `refresh_token` TEXT COMMENT '刷新令牌（AES-256加密存储）',
     `expires_at` DATETIME COMMENT '令牌过期时间',
 
     -- 绑定状态

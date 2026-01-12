@@ -180,18 +180,28 @@ sa-token:
   is-log: false
 
 oauth:
+  # State 过期时间（秒）
+  state-expiration: 600
+  # 前端回调页面 URL（OAuth 登录成功后重定向到此页面）
+  frontend-callback-url: ${APP_BASE_URL:http://localhost:3000}/oauth/callback
   providers:
     linuxdo:
+      enabled: true
+      type: oauth2
       client-id: ${LINUXDO_CLIENT_ID:your-client-id}
       client-secret: ${LINUXDO_CLIENT_SECRET:your-client-secret}
       authorize-url: https://connect.linux.do/oauth2/authorize
       token-url: https://connect.linux.do/oauth2/token
       user-info-url: https://connect.linux.do/api/user
       redirect-uri: ${APP_BASE_URL:http://localhost:3000}/api/oauth/linuxdo/callback
+      scopes:
+        - read
+        - write
 
     fishpi:
       # FishPi 使用 OpenID 2.0 协议，无需 client_id/secret
       # 参考文档: docs/fishpi oauth.md
+      enabled: true
       type: openid
       login-url: https://fishpi.cn/openid/login
       verify-url: https://fishpi.cn/openid/verify
