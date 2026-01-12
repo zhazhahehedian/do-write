@@ -1,39 +1,6 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: do-write-mysql
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-do_write}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_PASSWORD:-please-change-me}
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-      - --default-authentication-plugin=mysql_native_password
-    volumes:
-      - mysql_data:/var/lib/mysql
-      - ./docs/sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
-    ports:
-      - "${MYSQL_PORT:-3306}:3306"
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_PASSWORD:-please-change-me}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-
-  redis:
-    image: redis:7-alpine
-    container_name: do-write-redis
-    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:-please-change-me}"]
-    environment:
-      TZ: ${TZ:-Asia/Shanghai}
-    volumes:
-      - redis_data:/data
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    restart: unless-stopped
+  # MySQL 和 Redis 使用 1Panel 预装的，不在此处启动
+  # 如需使用 Docker 内置的 MySQL/Redis，请参考 docker-compose.standalone.yml
 
   chroma:
     image: chromadb/chroma:latest
@@ -79,11 +46,9 @@ services:
       APP_BASE_URL: ${APP_BASE_URL:-http://localhost}
       LINUXDO_CLIENT_ID: ${LINUXDO_CLIENT_ID:-your-client-id}
       LINUXDO_CLIENT_SECRET: ${LINUXDO_CLIENT_SECRET:-your-client-secret}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_started
       chroma:
         condition: service_started
     ports:
@@ -123,6 +88,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  mysql_data:
-  redis_data:
   chroma_data:
