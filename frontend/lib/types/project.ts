@@ -109,7 +109,7 @@ export interface ProjectCreateRequest {
 
 // 更新项目请求
 export interface ProjectUpdateRequest {
-  id: number
+  id?: string | number
   title?: string
   description?: string
   theme?: string

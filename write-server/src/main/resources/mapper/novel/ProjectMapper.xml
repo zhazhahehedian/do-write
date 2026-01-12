@@ -14,8 +14,9 @@
 
         <!-- 章节统计 -->
         <result column="total_chapters" property="totalChapters"/>
-        <result column="draft_chapters" property="draftChapters"/>
-        <result column="published_chapters" property="publishedChapters"/>
+        <!-- 暂不区分草稿/定稿状态 -->
+        <!-- <result column="draft_chapters" property="draftChapters"/> -->
+        <!-- <result column="published_chapters" property="publishedChapters"/> -->
 
         <!-- 角色统计 -->
         <result column="total_characters" property="totalCharacters"/>
@@ -53,15 +54,16 @@
              WHERE project_id = p.id AND is_deleted = 0
             ) AS total_chapters,
 
-            (SELECT COUNT(*)
-             FROM novel_chapter
-             WHERE project_id = p.id AND status = 'draft' AND is_deleted = 0
-            ) AS draft_chapters,
+            -- 暂不区分草稿/定稿状态，生成后可直接阅读与编辑
+            -- (SELECT COUNT(*)
+            --  FROM novel_chapter
+            --  WHERE project_id = p.id AND status = 'draft' AND is_deleted = 0
+            -- ) AS draft_chapters,
 
-            (SELECT COUNT(*)
-             FROM novel_chapter
-             WHERE project_id = p.id AND status = 'published' AND is_deleted = 0
-            ) AS published_chapters,
+            -- (SELECT COUNT(*)
+            --  FROM novel_chapter
+            --  WHERE project_id = p.id AND status = 'published' AND is_deleted = 0
+            -- ) AS published_chapters,
 
             -- 角色统计
             (SELECT COUNT(*)

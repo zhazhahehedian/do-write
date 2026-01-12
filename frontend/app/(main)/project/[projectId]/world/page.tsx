@@ -19,7 +19,6 @@ export default function WorldPage() {
 
   const updateMutation = useMutation({
     mutationFn: (data: any) => projectApi.update(projectId, {
-        id: Number(projectId),
         worldTimePeriod: data.timePeriod,
         worldLocation: data.location,
         worldAtmosphere: data.atmosphere,

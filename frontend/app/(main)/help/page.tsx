@@ -221,12 +221,6 @@ export default function HelpPage() {
               MCP 插件支持
             </Badge>
             <Badge variant="outline" className="text-muted-foreground">
-              项目导入/导出
-            </Badge>
-            <Badge variant="outline" className="text-muted-foreground">
-              剧情分析
-            </Badge>
-            <Badge variant="outline" className="text-muted-foreground">
               角色关系图谱
             </Badge>
           </div>

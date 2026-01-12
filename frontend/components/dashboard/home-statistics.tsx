@@ -131,8 +131,6 @@ export function HomeStatistics() {
     safeNumber(stat?.progressPercent) || calcPercent(totalCurrentWords, totalTargetWords)
 
   const totalChapters = safeNumber(stat?.totalChapters)
-  const publishedChapters = safeNumber(stat?.publishedChapters)
-  const draftChapters = safeNumber(stat?.draftChapters)
 
   const totalCharacters = safeNumber(stat?.totalCharacters)
   const totalOutlines = safeNumber(stat?.totalOutlines)
@@ -142,7 +140,6 @@ export function HomeStatistics() {
   const foreshadowResolved = safeNumber(memoryStatistics?.resolvedForeshadowCount)
 
   const isDetailLoading = Boolean(projectId) && (isStatisticsLoading || isMemoryLoading)
-  const showChapterStatusBreakdown = publishedChapters > 0
 
   return (
     <div className="space-y-6 py-6">
@@ -201,7 +198,7 @@ export function HomeStatistics() {
               <div className="text-2xl font-semibold">{totalChapters}</div>
             </div>
             <div className="text-xs text-muted-foreground">
-              {showChapterStatusBreakdown ? `已定稿 ${publishedChapters} · 草稿 ${draftChapters}` : '生成后可直接阅读与编辑'}
+              生成后可直接阅读与编辑
             </div>
           </CardContent>
         </Card>

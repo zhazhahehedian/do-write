@@ -232,6 +232,7 @@ export default function WizardPage() {
             <WorldGenerator
               projectId={projectId}
               readOnly={isReviewing}
+              isWizardMode={true}
               initialData={project ? {
                 timePeriod: project.worldTimePeriod,
                 location: project.worldLocation,

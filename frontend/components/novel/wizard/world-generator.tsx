@@ -9,12 +9,24 @@ import { SSEProgressModal } from '@/components/streaming/sse-progress-modal'
 import { StreamingText } from '@/components/streaming/streaming-text'
 import { useSSEStream } from '@/hooks/use-sse-stream'
 import { projectApi } from '@/lib/api/project'
-import { Sparkles, RefreshCw, Check, Loader2 } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Sparkles, RefreshCw, Check, Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface WorldGeneratorProps {
   projectId: string
   readOnly?: boolean
+  /** 是否在向导模式下（影响按钮文案） */
+  isWizardMode?: boolean
   initialData?: {
     timePeriod?: string
     location?: string
@@ -27,6 +39,7 @@ interface WorldGeneratorProps {
 export function WorldGenerator({
   projectId,
   readOnly = false,
+  isWizardMode = false,
   initialData,
   onComplete,
 }: WorldGeneratorProps) {
@@ -34,6 +47,7 @@ export function WorldGenerator({
   const [worldData, setWorldData] = useState(initialData || {})
   const [isEditing, setIsEditing] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [showRegenerateConfirm, setShowRegenerateConfirm] = useState(false)
 
   // Sync with initialData when it changes (e.g., after page refresh)
   useEffect(() => {
@@ -184,17 +198,50 @@ export function WorldGenerator({
                  </Button>
             </div>
             <div className="flex gap-2">
-                <Button variant="outline" onClick={handleGenerate}>
+                <Button variant="outline" onClick={() => setShowRegenerateConfirm(true)}>
                     <RefreshCw className="mr-2 h-4 w-4" />
                     重新生成
                 </Button>
-                <Button onClick={() => onComplete?.(worldData)}>
+                {isWizardMode ? (
+                  <Button onClick={() => onComplete?.(worldData)}>
                     <Check className="mr-2 h-4 w-4" />
                     确认并继续
-                </Button>
+                  </Button>
+                ) : (
+                  isEditing && (
+                    <Button onClick={() => {
+                      onComplete?.(worldData)
+                      setIsEditing(false)
+                    }}>
+                      <Save className="mr-2 h-4 w-4" />
+                      保存修改
+                    </Button>
+                  )
+                )}
             </div>
         </div>
       )}
+
+      {/* 重新生成确认弹窗 */}
+      <AlertDialog open={showRegenerateConfirm} onOpenChange={setShowRegenerateConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认重新生成</AlertDialogTitle>
+            <AlertDialogDescription>
+              重新生成将覆盖当前的世界观设定内容，此操作无法撤销。确定要继续吗？
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setShowRegenerateConfirm(false)
+              handleGenerate()
+            }}>
+              确认重新生成
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 错误提示 */}
       {error && (

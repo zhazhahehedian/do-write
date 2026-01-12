@@ -48,15 +48,16 @@ public class ProjectStatisticsVO implements Serializable {
      */
     private Integer totalChapters;
 
-    /**
-     * 草稿章节数
-     */
-    private Integer draftChapters;
+    // 暂不区分草稿/定稿状态，生成后可直接阅读与编辑
+    // /**
+    //  * 草稿章节数
+    //  */
+    // private Integer draftChapters;
 
-    /**
-     * 已发布章节数
-     */
-    private Integer publishedChapters;
+    // /**
+    //  * 已发布章节数
+    //  */
+    // private Integer publishedChapters;
 
     // ==================== 角色统计 ====================
 

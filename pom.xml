@@ -30,6 +30,9 @@
 		<spring-ai.version>1.1.2</spring-ai.version>
 		<spring-ai-alibaba.version>1.0.0.2</spring-ai-alibaba.version>
 
+		<!-- 工具依赖 -->
+		<commons-lang3.version>3.14.0</commons-lang3.version>
+
 		<!-- 数据库相关 -->
 		<mysql-connector-java.version>8.0.44</mysql-connector-java.version>
 		<mybatis-plus.version>3.5.15</mybatis-plus.version>
