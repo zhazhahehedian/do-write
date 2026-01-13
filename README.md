@@ -59,7 +59,7 @@
 
 ```bash
 # 1. 克隆项目
-git clone https://github.com/your-username/do-write.git
+git clone https://github.com/zhazhahehedian/do-write.git
 cd do-write
 
 # 2. 初始化数据库
