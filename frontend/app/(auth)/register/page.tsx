@@ -98,7 +98,7 @@ export default function RegisterPage() {
                     <FormLabel className="sr-only">用户名</FormLabel>
                     <FormControl>
                       <div className="relative group">
-                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary z-10 pointer-events-none" />
                         <Input 
                           placeholder="用户名" 
                           className="h-11 pl-10 rounded-xl bg-background/50 backdrop-blur-sm border-muted-foreground/20 focus:border-primary/50 focus:bg-background/80 transition-all duration-300"
@@ -118,7 +118,7 @@ export default function RegisterPage() {
                     <FormLabel className="sr-only">邮箱 (选填)</FormLabel>
                     <FormControl>
                       <div className="relative group">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary z-10 pointer-events-none" />
                         <Input 
                           type="email" 
                           placeholder="邮箱 (选填)" 
@@ -139,7 +139,7 @@ export default function RegisterPage() {
                     <FormLabel className="sr-only">密码</FormLabel>
                     <FormControl>
                       <div className="relative group">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary z-10 pointer-events-none" />
                         <Input 
                           type="password" 
                           placeholder="密码" 
@@ -160,7 +160,7 @@ export default function RegisterPage() {
                     <FormLabel className="sr-only">确认密码</FormLabel>
                     <FormControl>
                       <div className="relative group">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary" />
+                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-primary z-10 pointer-events-none" />
                         <Input 
                           type="password" 
                           placeholder="确认密码" 
