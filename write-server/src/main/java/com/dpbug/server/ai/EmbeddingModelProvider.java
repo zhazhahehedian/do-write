@@ -156,14 +156,6 @@ public class EmbeddingModelProvider {
         return new OpenAiEmbeddingModel(apiBuilder.build(), MetadataMode.EMBED, options);
     }
 
-    private String trimTrailingSlash(String url) {
-        String trimmed = url.trim();
-        while (trimmed.endsWith("/")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 1);
-        }
-        return trimmed;
-    }
-
     private boolean hasValue(String str) {
         return str != null && !str.trim().isEmpty();
     }

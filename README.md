@@ -86,10 +86,10 @@ cp .env.example .env
 # 编辑 .env 文件，配置必要的环境变量
 
 # 2. 启动全部服务
-docker-compose up -d
+docker compose up -d
 
 # 3. 查看日志
-docker-compose logs -f
+docker compose logs -f
 ```
 
 服务端口：

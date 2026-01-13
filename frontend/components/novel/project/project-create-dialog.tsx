@@ -60,7 +60,7 @@ const outlineModes = [
 
 const projectCreateSchema = z.object({
   title: z.string().min(1, '请输入项目标题').max(50, '标题不能超过50个字符'),
-  description: z.string().max(200, '描述不能超过200个字符').optional(),
+  description: z.string().max(500, '简介不能超过500个字符').optional(),
   genre: z.string().optional(),
   theme: z.string().max(100, '主题不能超过100个字符').optional(),
   narrativePerspective: z.string().optional(),
@@ -255,9 +255,13 @@ export function ProjectCreateDialog({
                     <Textarea
                       placeholder="简要描述故事梗概"
                       className="resize-none"
+                      maxLength={500}
                       {...field}
                     />
                   </FormControl>
+                  <p className="text-xs text-muted-foreground text-right">
+                    {field.value?.length || 0}/500
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
