@@ -9,6 +9,8 @@ services:
       TZ: ${TZ:-Asia/Shanghai}
     volumes:
       - chroma_data:/chroma/chroma
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
   backend:
