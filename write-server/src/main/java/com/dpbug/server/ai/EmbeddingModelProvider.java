@@ -75,7 +75,7 @@ public class EmbeddingModelProvider {
                 .apiKey(config.getApiKey());
 
         if (hasValue(config.getBaseUrl())) {
-            apiBuilder.baseUrl(trimTrailingSlash(config.getBaseUrl()));
+            apiBuilder.baseUrl(OpenAiBaseUrlNormalizer.normalize(config.getBaseUrl()));
         }
 
         OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()
@@ -146,7 +146,7 @@ public class EmbeddingModelProvider {
                 .apiKey(config.getApiKey());
 
         if (hasValue(config.getBaseUrl())) {
-            apiBuilder.baseUrl(trimTrailingSlash(config.getBaseUrl()));
+            apiBuilder.baseUrl(OpenAiBaseUrlNormalizer.normalize(config.getBaseUrl()));
         }
 
         OpenAiEmbeddingOptions options = OpenAiEmbeddingOptions.builder()

@@ -26,7 +26,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +52,28 @@ public class WizardAsyncServiceImpl implements WizardAsyncService {
     private final ChatClientFactory chatClientFactory;
     private final GenerationTaskService taskService;
     private final RedisLockUtil redisLockUtil;
+
+    /**
+     * 异步任务调用 AI 的超时时间：避免任务线程无限阻塞。
+     */
+    private static final Duration ASYNC_AI_TIMEOUT = Duration.ofMinutes(10);
+
+    private String callAiByStreaming(ChatClient chatClient, String systemPrompt, String userPrompt) {
+        Mono<String> responseMono = chatClient.prompt()
+                .system(systemPrompt)
+                .user(userPrompt)
+                .stream()
+                .content()
+                .collectList()
+                .map(list -> String.join("", list))
+                .timeout(ASYNC_AI_TIMEOUT);
+
+        String response = responseMono.block(ASYNC_AI_TIMEOUT);
+        if (response == null || response.isBlank()) {
+            throw new IllegalStateException("AI 返回内容为空");
+        }
+        return response;
+    }
 
     @Override
     @Async
@@ -79,12 +103,8 @@ public class WizardAsyncServiceImpl implements WizardAsyncService {
             int totalCount = getTotalCharacterCount(request);
             log.info("调用AI生成角色: taskId={}, count={}", taskId, totalCount);
 
-            // 调用AI生成（非流式）
-            String response = chatClient.prompt()
-                    .system(systemPrompt)
-                    .user(userPrompt)
-                    .call()
-                    .content();
+            // 调用AI生成：异步任务同样使用流式请求，降低网关超时(504)概率
+            String response = callAiByStreaming(chatClient, systemPrompt, userPrompt);
 
             // 更新进度
             taskService.updateProgress(taskId, 70, "正在解析角色数据...");
@@ -262,12 +282,8 @@ public class WizardAsyncServiceImpl implements WizardAsyncService {
 
             log.info("调用AI生成大纲: taskId={}, count={}", taskId, request.getOutlineCount());
 
-            // 调用AI生成（非流式）
-            String response = chatClient.prompt()
-                    .system(systemPrompt)
-                    .user(userPrompt)
-                    .call()
-                    .content();
+            // 调用AI生成：异步任务同样使用流式请求，降低网关超时(504)概率
+            String response = callAiByStreaming(chatClient, systemPrompt, userPrompt);
 
             // 更新进度
             taskService.updateProgress(taskId, 70, "正在解析大纲数据...");

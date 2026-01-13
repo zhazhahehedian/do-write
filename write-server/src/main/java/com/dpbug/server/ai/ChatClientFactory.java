@@ -39,7 +39,7 @@ public class ChatClientFactory {
      * 7个角色的JSON大约需要8000+ tokens
      * 设大一点先
      */
-    private static final int MIN_TOKENS_FOR_COMPLEX_TASKS = 32000;
+    private static final int MIN_TOKENS_FOR_COMPLEX_TASKS = 8192;
 
     /**
      * 为指定用户创建 ChatClient（使用默认配置）
@@ -130,13 +130,17 @@ public class ChatClientFactory {
         }
 
         // 去掉末尾的斜杠
-        String normalized = baseUrl.endsWith("/")
-                ? baseUrl.substring(0, baseUrl.length() - 1)
-                : baseUrl;
+        String normalized = baseUrl.trim();
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
 
         // 如果以 /v1 结尾，去掉它（因为 Spring AI 会自动添加）
-        if (normalized.endsWith("/v1")) {
+        while (normalized.endsWith("/v1")) {
             normalized = normalized.substring(0, normalized.length() - 3);
+            while (normalized.endsWith("/")) {
+                normalized = normalized.substring(0, normalized.length() - 1);
+            }
             log.debug("规范化 baseUrl: {} -> {}", baseUrl, normalized);
         }
 
@@ -172,7 +176,9 @@ public class ChatClientFactory {
         if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
             // 规范化 baseUrl，避免路径重复
             String baseUrl = normalizeBaseUrl(config.getBaseUrl());
-            apiBuilder.baseUrl(baseUrl);
+            if (baseUrl != null && !baseUrl.isEmpty()) {
+                apiBuilder.baseUrl(baseUrl);
+            }
         }
 
         OpenAiApi openAiApi = apiBuilder.build();

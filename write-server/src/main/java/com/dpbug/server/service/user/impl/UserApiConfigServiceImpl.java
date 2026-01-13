@@ -6,6 +6,7 @@ import com.dpbug.common.enums.ResultCode;
 import com.dpbug.common.exception.BusinessException;
 import com.dpbug.common.utils.AesUtil;
 import com.dpbug.common.utils.Assert;
+import com.dpbug.server.ai.OpenAiBaseUrlNormalizer;
 import com.dpbug.server.mapper.user.UserApiConfigMapper;
 import com.dpbug.server.model.dto.user.UserApiConfigRequest;
 import com.dpbug.server.model.entity.user.UserApiConfig;
@@ -59,6 +60,7 @@ public class UserApiConfigServiceImpl extends ServiceImpl<UserApiConfigMapper, U
         // 创建配置实体
         UserApiConfig config = new UserApiConfig();
         BeanUtils.copyProperties(dto, config);
+        config.setBaseUrl(normalizeBaseUrlForApiType(config.getApiType(), dto.getBaseUrl()));
 
         // 加密API Key
         config.setApiKey(AesUtil.encrypt(dto.getApiKey()));
@@ -124,7 +126,8 @@ public class UserApiConfigServiceImpl extends ServiceImpl<UserApiConfigMapper, U
             config.setApiKey(AesUtil.encrypt(dto.getApiKey()));
         }
         if (dto.getBaseUrl() != null) {
-            config.setBaseUrl(dto.getBaseUrl());
+            String apiTypeForNormalize = dto.getApiType() != null ? dto.getApiType() : config.getApiType();
+            config.setBaseUrl(normalizeBaseUrlForApiType(apiTypeForNormalize, dto.getBaseUrl()));
         }
         if (dto.getModelName() != null) {
             config.setModelName(dto.getModelName());
@@ -298,15 +301,15 @@ public class UserApiConfigServiceImpl extends ServiceImpl<UserApiConfigMapper, U
 
             if ("OLLAMA".equals(apiType)) {
                 String targetBaseUrl = (baseUrl != null && !baseUrl.isEmpty()) ? baseUrl : "http://localhost:11434";
-                String url = normalizeBaseUrl(targetBaseUrl) + "/api/tags";
+                String url = OpenAiBaseUrlNormalizer.trimTrailingSlash(targetBaseUrl) + "/api/tags";
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, HttpEntity.EMPTY, String.class);
                 return response.getStatusCode().is2xxSuccessful();
             }
 
             // OPENAI / AZURE_OPENAI / CUSTOM 默认按 OpenAI 兼容接口验证
             String targetBaseUrl = (baseUrl != null && !baseUrl.isEmpty()) ? baseUrl : "https://api.openai.com";
-            String normalized = normalizeBaseUrl(targetBaseUrl);
-            String url = normalized.contains("/v1") ? normalized + "/models" : normalized + "/v1/models";
+            String normalized = OpenAiBaseUrlNormalizer.normalize(targetBaseUrl);
+            String url = normalized + "/v1/models";
 
             HttpHeaders headers = new HttpHeaders();
             headers.setBearerAuth(dto.getApiKey().trim());
@@ -331,6 +334,25 @@ public class UserApiConfigServiceImpl extends ServiceImpl<UserApiConfigMapper, U
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
         return trimmed;
+    }
+
+    /**
+     * 保存/更新用户配置时的 baseUrl 规范化：避免出现 /v1/v1 这类重复路径导致调用 404。
+     */
+    private String normalizeBaseUrlForApiType(String apiType, String baseUrl) {
+        if (baseUrl == null) {
+            return null;
+        }
+        String trimmed = baseUrl.trim();
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+
+        String type = apiType != null ? apiType.trim().toUpperCase() : "";
+        if ("OPENAI".equals(type) || "AZURE_OPENAI".equals(type) || "CUSTOM".equals(type)) {
+            return OpenAiBaseUrlNormalizer.normalize(trimmed);
+        }
+        return OpenAiBaseUrlNormalizer.trimTrailingSlash(trimmed);
     }
 
     @Override

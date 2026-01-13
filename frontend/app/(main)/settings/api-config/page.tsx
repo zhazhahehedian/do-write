@@ -198,14 +198,14 @@ export default function ApiConfigPage() {
         }
       case 'CUSTOM':
         return {
-          placeholder: '例如：https://xxx.com/v1',
-          description: '第三方/中转端点一般以 /v1 结尾，请以服务商文档为准。',
+          placeholder: '例如：https://xxx.com',
+          description: '无需包含 /v1，系统会自动拼接；如果填了 /v1（甚至 /v1/v1）会自动去掉。',
         }
       case 'OPENAI':
       default:
         return {
-          placeholder: '例如：https://api.openai.com/v1',
-          description: '不填则使用 OpenAI 官方默认端点；使用代理/中转时再填写。',
+          placeholder: '例如：https://api.openai.com',
+          description: '不需要包含 /v1；不填则使用 OpenAI 官方默认端点，使用代理/中转时再填写。',
         }
     }
   })()
