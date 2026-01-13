@@ -36,6 +36,7 @@ public class AuthServiceImpl implements AuthService {
         // 2. 创建用户
         User user = new User();
         user.setUsername(username);
+        user.setNickname(username);  // 默认昵称使用用户名
         user.setPassword(passwordEncoder.encode(password));
         user.setEmail(email);
         user.setUserType("NORMAL");

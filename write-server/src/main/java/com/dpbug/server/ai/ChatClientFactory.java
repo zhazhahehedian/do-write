@@ -117,6 +117,33 @@ public class ChatClientFactory {
     }
 
     /**
+     * 规范化 baseUrl，移除可能导致路径重复的部分
+     * Spring AI 的 OpenAiApi 会自动拼接 /v1/chat/completions
+     * 所以用户配置的 baseUrl 如果已经包含 /v1，需要去掉
+     *
+     * @param baseUrl 原始 baseUrl
+     * @return 规范化后的 baseUrl
+     */
+    private String normalizeBaseUrl(String baseUrl) {
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            return baseUrl;
+        }
+
+        // 去掉末尾的斜杠
+        String normalized = baseUrl.endsWith("/")
+                ? baseUrl.substring(0, baseUrl.length() - 1)
+                : baseUrl;
+
+        // 如果以 /v1 结尾，去掉它（因为 Spring AI 会自动添加）
+        if (normalized.endsWith("/v1")) {
+            normalized = normalized.substring(0, normalized.length() - 3);
+            log.debug("规范化 baseUrl: {} -> {}", baseUrl, normalized);
+        }
+
+        return normalized;
+    }
+
+    /**
      * 计算实际使用的 maxTokens
      */
     private Integer calculateMaxTokens(Integer configMaxTokens, Integer minTokens) {
@@ -143,7 +170,9 @@ public class ChatClientFactory {
 
         // 如果有自定义 baseUrl，则使用（支持Azure OpenAI、国内代理等）
         if (config.getBaseUrl() != null && !config.getBaseUrl().isEmpty()) {
-            apiBuilder.baseUrl(config.getBaseUrl());
+            // 规范化 baseUrl，避免路径重复
+            String baseUrl = normalizeBaseUrl(config.getBaseUrl());
+            apiBuilder.baseUrl(baseUrl);
         }
 
         OpenAiApi openAiApi = apiBuilder.build();

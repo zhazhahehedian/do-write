@@ -161,7 +161,7 @@ export function WorldGenerator({
 
       {/* 世界观展示/编辑 */}
       {worldData.timePeriod && !isStreaming && !isRefreshing && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2 max-h-[50vh] overflow-y-auto pr-2">
           <WorldSection
             title="时代背景"
             content={worldData.timePeriod || ''}
@@ -189,9 +189,9 @@ export function WorldGenerator({
         </div>
       )}
 
-      {/* 操作按钮 */}
+      {/* 操作按钮 - 固定在底部 */}
       {worldData.timePeriod && !isStreaming && !isRefreshing && !readOnly && (
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center sticky bottom-0 bg-background py-4 border-t mt-4">
             <div className="flex gap-2">
                  <Button variant="outline" size="sm" onClick={() => setIsEditing(!isEditing)}>
                     {isEditing ? '预览' : '编辑'}

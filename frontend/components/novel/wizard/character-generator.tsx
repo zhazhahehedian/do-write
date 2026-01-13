@@ -269,14 +269,14 @@ export function CharacterGenerator({
       {/* 角色列表展示 */}
       {!isGenerating && characters.length > 0 && (
         <>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 md:grid-cols-2 max-h-[50vh] overflow-y-auto pr-2">
             {characters.map((char) => (
               <CharacterCard key={char.id} character={char} />
             ))}
           </div>
 
-          {/* 操作按钮 */}
-          <div className="flex justify-between">
+          {/* 操作按钮 - 固定在底部 */}
+          <div className="flex justify-between sticky bottom-0 bg-background py-4 border-t mt-4">
             <Button
               variant="outline"
               onClick={handleGenerate}

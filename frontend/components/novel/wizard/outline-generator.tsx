@@ -221,7 +221,7 @@ export function OutlineGenerator({
                 </h3>
               </div>
 
-              <div className="grid gap-3">
+              <div className="grid gap-3 max-h-[50vh] overflow-y-auto pr-2">
                 {outlineList.map((outline: Outline, index: number) => (
                   <OutlineCard key={outline.id} outline={outline} index={index} />
                 ))}
@@ -229,8 +229,8 @@ export function OutlineGenerator({
             </div>
           )}
 
-          {/* 操作按钮 */}
-          <div className="flex justify-between">
+          {/* 操作按钮 - 固定在底部 */}
+          <div className="flex justify-between sticky bottom-0 bg-background py-4 border-t mt-4">
             <Button variant="outline" onClick={handleGenerate} disabled={isPending || readOnly}>
               {isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
