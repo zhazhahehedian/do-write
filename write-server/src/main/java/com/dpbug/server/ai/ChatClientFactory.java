@@ -39,7 +39,7 @@ public class ChatClientFactory {
      * 7个角色的JSON大约需要8000+ tokens
      * 设大一点先
      */
-    private static final int MIN_TOKENS_FOR_COMPLEX_TASKS = 8192;
+    private static final int MIN_TOKENS_FOR_COMPLEX_TASKS = 16000;
 
     /**
      * 为指定用户创建 ChatClient（使用默认配置）
